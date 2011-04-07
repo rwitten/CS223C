@@ -17,13 +17,15 @@ drawnow;
 
 % train detector
 function detector = train(VOCopts,cls)
-TRAIN_IMAGES=10;
+TRAIN_IMAGES=2500;
 
 VOCopts.blocksize=2;
 VOCopts.cellsize =  8;
 VOCopts.numgradientdirections = 9;
-VOCopts.firstdim = 32; %empirical average!
-VOCopts.seconddim=22;  %empirical average!
+VOCopts.firstdim = 10; %empirical average!
+VOCopts.seconddim=6;  %empirical average!
+%VOCopts.firstdim = 32; %empirical average!
+%VOCopts.seconddim=22;  %empirical average!
 
 
 
@@ -82,25 +84,34 @@ for i=1:TRAIN_IMAGES,
         
         detector.bbox{end+1}=cat(1,rec.objects(clsinds(~diff)).bbox)';
         a= detector.bbox(end);
-        example = extractExample(VOCopts,imread(sprintf(VOCopts.imgpath,ids{i})), a{1},fd ); 
+        HOGFeatures = extractExample(VOCopts, a{1},fd ); 
                                                      %one example from each image, 
                                                      %should be a vector of size 
-                                                     %w*h * 4*9                                
-       if size(example,1) > 0,
-           examples = [examples example];
+                                                     %w*h * 4*9
+       if size(HOGFeatures,1)>0,  %if we managed to extract a bounding box                                                   
+          detector.FD(end+1,1:length(HOGFeatures))=HOGFeatures;%data
+          detector.gt(end+1)=gt;% mark image as positive or negative
        end
-       
-
-        % mark image as positive or negative
-        
-        %detector.gt(end+1)=gt;
     end
 end    
 
-exampleaverage = sum(examples,2)/ size(examples,2)
+svmStruct = svmtrain(detector.gt',detector.FD);
+[predicted_label, accuracy, decision_values] = svmpredict(detector.gt',detector.FD,svmStruct);
+
+sum(abs(predicted_label- detector.gt')<1e-3)/size(detector.gt',1)
+
+%correct = 0;
+%for i = 1:size(detector.gt,2),
+%    label = svmpredict(detector.gt(i),detector.FD(i,:),svmStruct);
+%    %label = svmpredict(svmStruct, detector.FD(i,:));
+%    if abs(label - detector.gt(i))<1e-3,
+%        correct = correct +1;
+%    end
+%end
 
 % run detector on test images
 function out = test(VOCopts,cls,detector)
+return
 TEST_IMAGES=100;
 
 % load test set ('val' for development kit)

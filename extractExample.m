@@ -1,58 +1,39 @@
-function [ example ] = extractExample( VOCopts, Im, boundingbox,features )
+function [ HOGVector ] = extractExample( VOCopts, boundingbox,features )
 %EXTRACTEXAMPLE Summary of this function goes here
 %   Extract either a positive or a negative example from the image
 
+xdim = size(features,1)*VOCopts.cellsize;
+ydim = size(features,2)*VOCopts.cellsize;
 
 if size(boundingbox,1)<1,
     example = []; %IN THE FUTURE GENERATE A NEGATIVE EXAMPLE
-    return
+    center = [floor(rand()*xdim); floor(rand()*ydim)];
+else,
+    currbox = boundingbox(:,max(1, end-1));
+
+    y1 = currbox(1);
+    x1 = currbox(2);
+    y2 = currbox(3);
+    x2 = currbox(4);
+
+    center = [floor((x2 + x1)/2); floor((y2 + y1)/2)];
 end
 
-currbox = boundingbox(:,max(1, end-1));
-
-y1 = currbox(1);
-x1 = currbox(2);
-y2 = currbox(3);
-x2 = currbox(4);
-
-xdim = size(Im,1);
-ydim = size(Im,2);
-
-center = [floor((x2 + x1)/2); floor((y2 + y1)/2)];
 
 [HOGCenter, HOGVector]=pixelSpaceToHOGSpace(VOCopts, features, center);
-if size(HOGCenter,1)<1,
-    example = [];
-    return
-end
 
-[pixelBox] = HOGSpaceToPixelSpace(VOCopts, features, HOGCenter);
+%This code helps you draw boxes.
+%for i = 1:xdim,
+%    for j = 1:ydim,
+%        if i < x2 && i>x1 && j < y2 && j >y1,
+%            Im(i,j,3) = 1e4;
+%        end
+%    end    
+%end
 
-lowerFirst = pixelBox(1);
-upperFirst = pixelBox(2);
-lowerSecond = pixelBox(3);
-upperSecond = pixelBox(4);
+%imwrite(Im, 'boom.png', 'png');
+%example = [x2-x1; y2-y1];
 
-
-newIm = zeros(xdim, ydim);
-
-for i = 1:xdim,
-    for j = 1:ydim,
-        if i < x2 && i>x1 && j < y2 && j >y1,
-            Im(i,j,3) = 1e4;
-        end
-        if i < upperFirst && i>lowerFirst && j < upperSecond && j >lowerSecond,
-            Im(i,j,1) = 1e4;
-        end
-    end
-    
-end
-
-imwrite(Im, 'boom.png', 'png');
-
-
-
-example = [x2-x1; y2-y1];
 
 end
 
@@ -86,7 +67,7 @@ if secondlower < 1,
 end
 
 if secondupper > size(features,2),
-    secondlower = size(features,2)-VOCopts.secondsdim+1;
+    secondlower = size(features,2)-VOCopts.seconddim+1;
     secondupper = size(features,2);
 end
 
