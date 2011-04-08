@@ -6,6 +6,14 @@ addpath([cd '/VOCcode']);
 % initialize VOC options
 VOCinit;
 
+VOCopts.blocksize=2;
+VOCopts.cellsize =  8;
+VOCopts.numgradientdirections = 9;
+VOCopts.firstdim = 10;
+VOCopts.seconddim=6;
+%VOCopts.firstdim = 32; %empirical average!
+%VOCopts.seconddim=22;  %empirical average!
+
 % train and test detector for each class
 cls='person';
 detector=train(VOCopts,cls);                            % train detector
@@ -17,17 +25,8 @@ drawnow;
 
 % train detector
 function detector = train(VOCopts,cls)
-TRAIN_IMAGES=2500;
-
-VOCopts.blocksize=2;
-VOCopts.cellsize =  8;
-VOCopts.numgradientdirections = 9;
-VOCopts.firstdim = 10; %empirical average!
-VOCopts.seconddim=6;  %empirical average!
-%VOCopts.firstdim = 32; %empirical average!
-%VOCopts.seconddim=22;  %empirical average!
-
-
+TRAIN_IMAGES=1000;
+%TRAIN_IMAGES=100;
 
 
 % load 'train' image set
@@ -39,6 +38,10 @@ detector.bbox={};
 detector.gt=[];
 tic;
 examples = [];
+
+detector.FD = NaN * ones(TRAIN_IMAGES*10,4*VOCopts.numgradientdirections*VOCopts.firstdim* ...
+    VOCopts.seconddim);
+
 for i=1:TRAIN_IMAGES,
     % display progress
     if toc>1
@@ -84,21 +87,47 @@ for i=1:TRAIN_IMAGES,
         
         detector.bbox{end+1}=cat(1,rec.objects(clsinds(~diff)).bbox)';
         a= detector.bbox(end);
-        HOGFeatures = extractExample(VOCopts, a{1},fd ); 
-                                                     %one example from each image, 
-                                                     %should be a vector of size 
-                                                     %w*h * 4*9
-       if size(HOGFeatures,1)>0,  %if we managed to extract a bounding box                                                   
-          detector.FD(end+1,1:length(HOGFeatures))=HOGFeatures;%data
-          detector.gt(end+1)=gt;% mark image as positive or negative
-       end
+        
+        %detector.FD = [detector.FD;extractExample(VOCopts, a{1},fd )]; 
+        examples = extractExample(VOCopts, a{1},fd );
+        
+        detector.FD(length(detector.gt)+1:length(detector.gt)+size(examples,1),:) ...
+            = examples;
+                                                   %one example for each bounding box, 
+                                                   %should be a vector of size 
+                                                   %w*h * 4*9 
+        detector.gt = [detector.gt, ...
+           gt*ones(1,size(examples,1))]; 
+        
     end
-end    
+end
 
-svmStruct = svmtrain(detector.gt',detector.FD);
-[predicted_label, accuracy, decision_values] = svmpredict(detector.gt',detector.FD,svmStruct);
+detector.FD = detector.FD(1:length(detector.gt), :);
 
-sum(abs(predicted_label- detector.gt')<1e-3)/size(detector.gt',1)
+halfway = floor(length(detector.gt)/2);
+
+traingt = detector.gt(1:halfway);
+testgt = detector.gt(halfway+1:end);
+trainfd = detector.FD(1:halfway, :);
+testfd = detector.FD(halfway+1:end, :);
+
+%svmStruct = svmtrain(traingt',trainfd);
+svmStruct = liblineartrain(traingt',sparse(trainfd));
+
+%[predicted_label, accuracy, decision_values] ...
+%   = svmpredict(traingt',trainfd,svmStruct);
+
+[predicted_label, accuracy, decision_values] ...
+   = liblinearpredict(testgt',sparse(testfd),svmStruct, '-b 1');
+
+
+svmStruct
+
+a = sum(detector.gt)/length(detector.gt)
+
+%svmStruct = svmtrain(detector.gt',detector.FD);
+%[predicted_label, accuracy, decision_values] ...
+% = svmpredict(detector.gt',detector.FD,svmStruct);
 
 %correct = 0;
 %for i = 1:size(detector.gt,2),
@@ -111,7 +140,7 @@ sum(abs(predicted_label- detector.gt')<1e-3)/size(detector.gt',1)
 
 % run detector on test images
 function out = test(VOCopts,cls,detector)
-return
+return 
 TEST_IMAGES=100;
 
 % load test set ('val' for development kit)
@@ -122,7 +151,7 @@ fid=fopen(sprintf(VOCopts.detrespath,'comp3',cls),'w');
 
 % apply detector to each image
 tic;
-for i=1:TEST_IMAGES
+for i=1:length(ids)
     % display progress
     if toc>1
         fprintf('%s: test: %d/%d\n',cls,i,length(ids));
@@ -161,17 +190,16 @@ fd = HOG(VOCopts,I);
 % bounding boxes of nearest positive training image are output
 function [c,BB] = detect(VOCopts,detector,fd)
 
-% compute confidence
-d=sum(fd.*fd)+sum(detector.FD.*detector.FD)-2*fd'*detector.FD;
-dp=min(d(detector.gt>0));
-dn=min(d(detector.gt<0));
-c=dn/(dp+eps);
+VOCopts.firstdim
 
-% copy bounding boxes from nearest positive image
-pinds=find(detector.gt>0);
-[dp,di]=min(d(pinds));
-pind=pinds(di);
-BB=detector.bbox{pind};
+xdim = size(fd,1);
+ydim = size(fd,2);
 
-% replicate confidence for each detection
-c=ones(size(BB,2),1)*c;
+for x = 1+VOCopts.firstdim/2 :xdim - VOCopts.firstdim/2,
+    for y = 1+VOCopts.seconddim/2:ydim - VOCopts.seconddim/2,
+        [x y]
+    end
+end
+
+
+% iterate through and fire if we're bigger than some cutoff.

@@ -1,4 +1,4 @@
-function [ HOGVector ] = extractExample( VOCopts, boundingbox,features )
+function [ HOGVectors ] = extractExample( VOCopts, boundingbox,features )
 %EXTRACTEXAMPLE Summary of this function goes here
 %   Extract either a positive or a negative example from the image
 
@@ -6,21 +6,32 @@ xdim = size(features,1)*VOCopts.cellsize;
 ydim = size(features,2)*VOCopts.cellsize;
 
 if size(boundingbox,1)<1,
-    example = []; %IN THE FUTURE GENERATE A NEGATIVE EXAMPLE
-    center = [floor(rand()*xdim); floor(rand()*ydim)];
-else,
-    currbox = boundingbox(:,max(1, end-1));
+    centers = [];
+    for i=1:2,
+      centers = [centers [floor(rand()*xdim); floor(rand()*ydim)]];
+    end
+    
+else
+    centers = [];
+    
+    for i= 1:size(boundingbox,2),
+        currbox = boundingbox(:,i);
 
-    y1 = currbox(1);
-    x1 = currbox(2);
-    y2 = currbox(3);
-    x2 = currbox(4);
+        y1 = currbox(1);
+        x1 = currbox(2);
+        y2 = currbox(3);
+        x2 = currbox(4);
 
-    center = [floor((x2 + x1)/2); floor((y2 + y1)/2)];
+        centers = [centers [floor((x2 + x1)/2); floor((y2 + y1)/2)]];
+    end
 end
 
+HOGVectors = [];
 
-[HOGCenter, HOGVector]=pixelSpaceToHOGSpace(VOCopts, features, center);
+for i=1:size(centers,2),
+    [HOGCenter, HOGVector]=pixelSpaceToHOGSpace(VOCopts, features, centers(:,i));
+    HOGVectors = [HOGVectors; HOGVector];
+end
 
 %This code helps you draw boxes.
 %for i = 1:xdim,
