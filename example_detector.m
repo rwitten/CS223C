@@ -24,10 +24,9 @@ drawnow;
 
 
 % train detector
-function detector = train(VOCopts,cls)
+function [newexamples, newgt] = fillexamples(VOCopts,cls, originalexamples, originalgt)
+%TRAIN_IMAGES=2500;
 TRAIN_IMAGES=1000;
-%TRAIN_IMAGES=100;
-
 
 % load 'train' image set
 ids=textread(sprintf(VOCopts.imgsetpath,'train'),'%s');
@@ -42,16 +41,21 @@ examples = [];
 detector.FD = NaN * ones(TRAIN_IMAGES*10,4*VOCopts.numgradientdirections*VOCopts.firstdim* ...
     VOCopts.seconddim);
 
-for i=1:TRAIN_IMAGES,
+if length(originalgt)>0,
+    detector.gt = originalgt;
+    detector.FD(1:length(detector.gt), :) = originalexamples;
+end
+
+for j=1:TRAIN_IMAGES-length(detector.gt),
+    i = floor(rand(1,1)*TRAIN_IMAGES)+1;
     % display progress
-    if toc>1
-        fprintf('%s: train: %d/%d\n',cls,i,length(ids));
+    if toc>2
+        fprintf('%s: train: %d/%d\n',cls,j,length(ids));
         drawnow;
         tic;
     end
-    
-   
     % read annotation
+    
     rec=PASreadrecord(sprintf(VOCopts.annopath,ids{i}));
     
     % find objects of class and extract difficult flags for these objects
@@ -90,40 +94,87 @@ for i=1:TRAIN_IMAGES,
         
         %detector.FD = [detector.FD;extractExample(VOCopts, a{1},fd )]; 
         examples = extractExample(VOCopts, a{1},fd );
-        
         detector.FD(length(detector.gt)+1:length(detector.gt)+size(examples,1),:) ...
             = examples;
                                                    %one example for each bounding box, 
                                                    %should be a vector of size 
                                                    %w*h * 4*9 
-        detector.gt = [detector.gt, ...
-           gt*ones(1,size(examples,1))]; 
+        
+        detector.gt = [detector.gt, gt*ones(1,size(examples,1))]; 
         
     end
 end
+newgt=detector.gt;
+newexamples = detector.FD(1:length(newgt), :);
 
 detector.FD = detector.FD(1:length(detector.gt), :);
 
-halfway = floor(length(detector.gt)/2);
 
-traingt = detector.gt(1:halfway);
-testgt = detector.gt(halfway+1:end);
-trainfd = detector.FD(1:halfway, :);
-testfd = detector.FD(halfway+1:end, :);
+function [detector] = train(VOCopts,cls)
 
-%svmStruct = svmtrain(traingt',trainfd);
-svmStruct = liblineartrain(traingt',sparse(trainfd));
+savedfeatures = [];
+savedgt = [];
 
-%[predicted_label, accuracy, decision_values] ...
-%   = svmpredict(traingt',trainfd,svmStruct);
+for i=1:10,
+    [newexamples, newgt] = fillexamples(VOCopts, cls, savedfeatures, savedgt);
+    
+    perm = randperm(length(newgt));
+    
+    newgt = newgt(perm);
+    newexamples = newexamples(perm, :);
+    
+    halfway = floor(length(newgt)/2);
 
-[predicted_label, accuracy, decision_values] ...
-   = liblinearpredict(testgt',sparse(testfd),svmStruct, '-b 1');
+    traingt = newgt(1:halfway);
+    testgt = newgt(halfway+1:end);
+    trainfd = newexamples(1:halfway, :);
+    testfd = newexamples(halfway+1:end, :);
+
+    %svmStruct = svmtrain(traingt',trainfd);
+    svmStruct = liblineartrain(traingt',sparse(trainfd), '-s 2 -q');
+
+    %[predicted_label, accuracy, decision_values] ...
+    %   = svmpredict(traingt',trainfd,svmStruct);
 
 
-svmStruct
+    disp 'How we do overall'
+    [predicted_label, accuracy] ...
+       = liblinearpredict(testgt',sparse(testfd),svmStruct);
 
-a = sum(detector.gt)/length(detector.gt)
+    scores = testfd * svmStruct.w';
+    
+    empiricalerrors = sum(abs(2*((scores > 0 )-.5) + predicted_label)); % this should be 0
+    if empiricalerrors > 1,
+       howbadwedid = scores.*testgt';
+    else
+       howbadwedid = -scores.*testgt';
+    end
+     
+    badnesscutoff = median(howbadwedid)
+    %badnesscutoff = sum(howbadwedid)/length(howbadwedid);
+
+    savedfeatures = NaN * ones(length(howbadwedid), size(newexamples,2));
+
+    savedgt = [];
+
+    for i=1:length(howbadwedid),
+        if howbadwedid(i)<badnesscutoff,
+            savedgt(end+1) = testgt(i);
+            savedfeatures(length(savedgt),:) = testfd(i,:)';
+        end
+    end
+    
+    savedfeatures= savedfeatures(1:length(savedgt),:);
+       
+    %testgt' - 2*((scores > 0 )-.5)
+    naiveperformance = abs(sum(newgt)/length(newgt))/2 + .5 %baseline
+    
+    %disp 'how bad we did on the worst'
+    %[predicted_label, accuracy] ...
+    %   = liblinearpredict(savedgt',sparse(savedfeatures),svmStruct);
+end
+
+detector = svmStruct;
 
 %svmStruct = svmtrain(detector.gt',detector.FD);
 %[predicted_label, accuracy, decision_values] ...

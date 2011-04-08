@@ -7,7 +7,7 @@ ydim = size(features,2)*VOCopts.cellsize;
 
 if size(boundingbox,1)<1,
     centers = [];
-    for i=1:2,
+    for i=1:3,
       centers = [centers [floor(rand()*xdim); floor(rand()*ydim)]];
     end
     
