@@ -26,7 +26,7 @@ drawnow;
 % train detector
 function [newexamples, newgt] = fillexamples(VOCopts,cls, originalexamples, originalgt)
 %TRAIN_IMAGES=2500;
-TRAIN_IMAGES=1000;
+TRAIN_IMAGES=2000;
 
 % load 'train' image set
 ids=textread(sprintf(VOCopts.imgsetpath,'train'),'%s');
@@ -116,7 +116,10 @@ savedfeatures = [];
 savedgt = [];
 
 for i=1:10,
+    fprintf('were on iteration %d\n', i);
     [newexamples, newgt] = fillexamples(VOCopts, cls, savedfeatures, savedgt);
+    
+    fprintf('number of examples ti train on: %d\n',length(newgt));
     
     perm = randperm(length(newgt));
     
@@ -131,50 +134,86 @@ for i=1:10,
     testfd = newexamples(halfway+1:end, :);
 
     %svmStruct = svmtrain(traingt',trainfd);
-    svmStruct = liblineartrain(traingt',sparse(trainfd), '-s 2 -q');
+    svmStructTrain = liblineartrain(traingt',sparse(trainfd), '-s 2 -q');
+    svmStructTest = liblineartrain(testgt',sparse(testfd), '-s 2 -q'); 
+                                            %svmStructTrain is trained on
+                                            %train data and svmStructTest
+                                            %is trained on test data.
 
     %[predicted_label, accuracy, decision_values] ...
     %   = svmpredict(traingt',trainfd,svmStruct);
 
 
     disp 'How we do overall'
-    [predicted_label, accuracy] ...
-       = liblinearpredict(testgt',sparse(testfd),svmStruct);
+    [predicted_label_train, accuracy] ...
+       = liblinearpredict(testgt',sparse(testfd),svmStructTrain);
+    [predicted_label_test, accuracy] ...
+       = liblinearpredict(traingt',sparse(trainfd),svmStructTest);
+   naiveperformance = abs(sum(newgt)/length(newgt))/2 + .5 %baseline
 
-    scores = testfd * svmStruct.w';
+    scorestrain = testfd * svmStructTrain.w';
+    scorestest = trainfd * svmStructTest.w';
     
-    empiricalerrors = sum(abs(2*((scores > 0 )-.5) + predicted_label)); % this should be 0
-    if empiricalerrors > 1,
-       howbadwedid = scores.*testgt';
+    empiricalerrorstrain = sum(abs(2*((scorestrain > 0 )-.5) + predicted_label_train)); % this should be 0
+    if empiricalerrorstrain > 1,
+       howbadwedidtrain = scorestrain.*testgt';
     else
-       howbadwedid = -scores.*testgt';
+       howbadwedidtrain = -scorestrain.*testgt';
+    end
+    
+    empiricalerrorstest = sum(abs(2*((scorestest > 0 )-.5) + predicted_label_test)); % this should be 0
+    if empiricalerrorstest > 1,
+       howbadwedidtest = scorestest.*traingt';
+    else
+       howbadwedidtest = -scorestest.*traingt';
     end
      
-    badnesscutoff = median(howbadwedid)
-    %badnesscutoff = sum(howbadwedid)/length(howbadwedid);
+    badnesscutofftrain = median(howbadwedidtrain)
+    badnesscutofftest = median(howbadwedidtest)
 
-    savedfeatures = NaN * ones(length(howbadwedid), size(newexamples,2));
+    savedfeatures = NaN * ones(length(howbadwedidtrain)+length(howbadwedidtest)...
+        , size(newexamples,2));
 
     savedgt = [];
 
-    for i=1:length(howbadwedid),
-        if howbadwedid(i)<badnesscutoff,
+    for i=1:length(howbadwedidtrain),
+        if howbadwedidtrain(i)<badnesscutofftrain,
             savedgt(end+1) = testgt(i);
             savedfeatures(length(savedgt),:) = testfd(i,:)';
         end
     end
     
+    for i=1:length(howbadwedidtest),
+        if howbadwedidtest(i)<badnesscutofftest,
+            savedgt(end+1) = traingt(i);
+            savedfeatures(length(savedgt),:) = trainfd(i,:)';
+        end
+    end
+    
     savedfeatures= savedfeatures(1:length(savedgt),:);
+    
+    fprintf('number of saved examples: %d\n',size(savedfeatures,1));
        
     %testgt' - 2*((scores > 0 )-.5)
-    naiveperformance = abs(sum(newgt)/length(newgt))/2 + .5 %baseline
+    
     
     %disp 'how bad we did on the worst'
     %[predicted_label, accuracy] ...
     %   = liblinearpredict(savedgt',sparse(savedfeatures),svmStruct);
 end
 
-detector = svmStruct;
+disp 'final showdown'
+detector = liblineartrain(newgt',sparse(newexamples), '-s 2 -q');
+                      %we need to train a final detector on hard examples
+disp 'detector trained'                   
+[newtestexamples, newtestgt] = fillexamples(VOCopts, cls, [], []);
+
+
+disp 'testing detector'
+naiveperformance = abs(sum(newtestgt)/length(newtestgt))/2 + .5 %baseline
+[predicted_label_test, accuracy] ...
+       = liblinearpredict(newtestgt',sparse(newtestexamples),detector);
+
 
 %svmStruct = svmtrain(detector.gt',detector.FD);
 %[predicted_label, accuracy, decision_values] ...

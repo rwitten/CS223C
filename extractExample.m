@@ -21,8 +21,10 @@ else
         x1 = currbox(2);
         y2 = currbox(3);
         x2 = currbox(4);
-
-        centers = [centers [floor((x2 + x1)/2); floor((y2 + y1)/2)]];
+        newcenter = [floor((x2 + x1)/2); floor((y2 + y1)/2)];
+        newcenter = newcenter + [(.5)*(rand-.5)*(x2-x1); .5*(rand-.5)*(y2-y1)];
+        centers = [centers newcenter];
+        
     end
 end
 
@@ -87,7 +89,7 @@ HOGVector = reshape(features(firstlower:firstupper, secondlower:secondupper, :).
   
 end
 
-function [pixelBox] = HOGSpaceToPixelSpace(VOCopts, features, HOGCenter)
+function [pixelBox, pixelCenter] = HOGSpaceToPixelSpace(VOCopts, features, HOGCenter)
 pixelCenter = (HOGCenter+1)* VOCopts.cellsize;
 pixelBox = [pixelCenter(1) - (VOCopts.firstdim*VOCopts.cellsize)/2; ...
     pixelCenter(1) + (VOCopts.firstdim*VOCopts.cellsize)/2; ...
