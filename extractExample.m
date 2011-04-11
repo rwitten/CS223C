@@ -7,7 +7,7 @@ ydim = size(features,2)*VOCopts.cellsize;
 
 if size(boundingbox,1)<1,
     centers = [];
-    for i=1:3,
+    for i=1:5,
       centers = [centers [floor(rand()*xdim); floor(rand()*ydim)]];
     end
     
@@ -22,7 +22,8 @@ else
         y2 = currbox(3);
         x2 = currbox(4);
         newcenter = [floor((x2 + x1)/2); floor((y2 + y1)/2)];
-        newcenter = newcenter + [(.5)*(rand-.5)*(x2-x1); .5*(rand-.5)*(y2-y1)];
+        offset = [(.5)*(rand-.5)*(x2-x1); .5*(rand-.5)*(y2-y1)];
+        %newcenter = newcenter + offset;
         centers = [centers newcenter];
         
     end
@@ -50,51 +51,4 @@ end
 
 end
 
-function [HOGCenter, HOGVector] = pixelSpaceToHOGSpace(VOCopts, features, pixelcenter)
-HOGCenter = ceil(pixelcenter/8)-1;
 
-firstlower = ceil(HOGCenter(1)-VOCopts.firstdim/2);
-firstupper = ceil(HOGCenter(1)+VOCopts.firstdim/2-1);
-secondlower = ceil(HOGCenter(2)-VOCopts.seconddim/2);
-secondupper = ceil(HOGCenter(2)+VOCopts.seconddim/2-1);
-
-if size(features,1) < VOCopts.firstdim || size(features,2) < VOCopts.seconddim,
-    HOGCenter = [];
-    HOGVector = [];
-    return;
-end
-
-if firstlower < 1,
-    firstlower = 1;
-    firstupper = VOCopts.firstdim;
-end
-
-if firstupper > size(features,1),
-    firstlower = size(features,1)-VOCopts.firstdim+1;
-    firstupper = size(features,1);
-end
-
-if secondlower < 1,
-    secondlower = 1;
-    secondupper = VOCopts.seconddim;
-end
-
-if secondupper > size(features,2),
-    secondlower = size(features,2)-VOCopts.seconddim+1;
-    secondupper = size(features,2);
-end
-
-HOGVector = reshape(features(firstlower:firstupper, secondlower:secondupper, :)...
-    ,[1, prod(size(features(firstlower:firstupper, secondlower:secondupper, :)))]);
-  
-end
-
-function [pixelBox, pixelCenter] = HOGSpaceToPixelSpace(VOCopts, features, HOGCenter)
-pixelCenter = (HOGCenter+1)* VOCopts.cellsize;
-pixelBox = [pixelCenter(1) - (VOCopts.firstdim*VOCopts.cellsize)/2; ...
-    pixelCenter(1) + (VOCopts.firstdim*VOCopts.cellsize)/2; ...
-    pixelCenter(2) - (VOCopts.seconddim*VOCopts.cellsize)/2; ...
-    pixelCenter(2) + (VOCopts.seconddim*VOCopts.cellsize)/2;];
-
-    
-end

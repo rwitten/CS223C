@@ -7,7 +7,7 @@
 
 %Sources: Dalal+Trigg paper and Wikipedia
 
-function H=hog(VOCOpts, Im)
+function H=HOG(VOCOpts, Im)
 blocksize = VOCOpts.blocksize;
 cellsize =  VOCOpts.cellsize;
 numgradientdirections = VOCOpts.numgradientdirections;

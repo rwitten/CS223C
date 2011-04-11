@@ -11,13 +11,14 @@ VOCopts.cellsize =  8;
 VOCopts.numgradientdirections = 9;
 VOCopts.firstdim = 10;
 VOCopts.seconddim=6;
+VOCopts.miningiters=3;
 %VOCopts.firstdim = 32; %empirical average!
 %VOCopts.seconddim=22;  %empirical average!
 
 % train and test detector for each class
 cls='person';
 detector=train(VOCopts,cls);                            % train detector
-test(VOCopts,cls,detector);                             % test detector
+%test(VOCopts,cls,detector);                             % test detector
 %[recall,prec,ap]=VOCevaldet(VOCopts,'comp3',cls,true);  % compute and display PR #which means precision recall
 drawnow;
 
@@ -25,11 +26,12 @@ drawnow;
 
 % train detector
 function [newexamples, newgt] = fillexamples(VOCopts,cls, originalexamples, originalgt)
-%TRAIN_IMAGES=2500;
-TRAIN_IMAGES=2000;
 
 % load 'train' image set
 ids=textread(sprintf(VOCopts.imgsetpath,'train'),'%s');
+
+TOTAL_IMAGES=length(ids);
+TRAIN_IMAGES=200;
 
 % extract features and bounding boxes
 detector.FD=[];
@@ -46,11 +48,11 @@ if length(originalgt)>0,
     detector.FD(1:length(detector.gt), :) = originalexamples;
 end
 
-for j=1:TRAIN_IMAGES-length(detector.gt),
-    i = floor(rand(1,1)*TRAIN_IMAGES)+1;
+while TRAIN_IMAGES>length(detector.gt),
+    i = floor(rand*TOTAL_IMAGES)+1;
     % display progress
-    if toc>2
-        fprintf('%s: train: %d/%d\n',cls,j,length(ids));
+    if toc>1
+        fprintf('%s: train: %d/%d\n',cls,length(detector.gt),TRAIN_IMAGES);
         drawnow;
         tic;
     end
@@ -115,11 +117,11 @@ function [detector] = train(VOCopts,cls)
 savedfeatures = [];
 savedgt = [];
 
-for i=1:10,
-    fprintf('were on iteration %d\n', i);
+for i=1:VOCopts.miningiters,
+    fprintf('we are on iteration %d\n', i);
     [newexamples, newgt] = fillexamples(VOCopts, cls, savedfeatures, savedgt);
     
-    fprintf('number of examples ti train on: %d\n',length(newgt));
+    fprintf('number of examples to train on: %d\n',length(newgt));
     
     perm = randperm(length(newgt));
     
@@ -134,8 +136,8 @@ for i=1:10,
     testfd = newexamples(halfway+1:end, :);
 
     %svmStruct = svmtrain(traingt',trainfd);
-    svmStructTrain = liblineartrain(traingt',sparse(trainfd), '-s 2 -q');
-    svmStructTest = liblineartrain(testgt',sparse(testfd), '-s 2 -q'); 
+    svmStructTrain = liblineartrain(traingt',sparse(trainfd), '-s 2 -B 1 -q');
+    svmStructTest = liblineartrain(testgt',sparse(testfd), '-s 2 -B 1 -q'); 
                                             %svmStructTrain is trained on
                                             %train data and svmStructTest
                                             %is trained on test data.
@@ -150,9 +152,9 @@ for i=1:10,
     [predicted_label_test, accuracy] ...
        = liblinearpredict(traingt',sparse(trainfd),svmStructTest);
    naiveperformance = abs(sum(newgt)/length(newgt))/2 + .5 %baseline
-
-    scorestrain = testfd * svmStructTrain.w';
-    scorestest = trainfd * svmStructTest.w';
+    size(testfd)
+    scorestrain = [testfd,ones(size(testfd,1),1)] * svmStructTrain.w';
+    scorestest = [trainfd,ones(size(trainfd,1),1)] * svmStructTest.w';
     
     empiricalerrorstrain = sum(abs(2*((scorestrain > 0 )-.5) + predicted_label_train)); % this should be 0
     if empiricalerrorstrain > 1,
@@ -203,7 +205,7 @@ for i=1:10,
 end
 
 disp 'final showdown'
-detector = liblineartrain(newgt',sparse(newexamples), '-s 2 -q');
+detector = liblineartrain(newgt',sparse(newexamples), '-s 2 -B 1 -q');
                       %we need to train a final detector on hard examples
 disp 'detector trained'                   
 [newtestexamples, newtestgt] = fillexamples(VOCopts, cls, [], []);
@@ -211,8 +213,20 @@ disp 'detector trained'
 
 disp 'testing detector'
 naiveperformance = abs(sum(newtestgt)/length(newtestgt))/2 + .5 %baseline
+
+scores = [newtestexamples,ones(size(newtestexamples,1),1)] * detector.w';
 [predicted_label_test, accuracy] ...
        = liblinearpredict(newtestgt',sparse(newtestexamples),detector);
+   
+ if sum(abs(2*((scorestrain > 0 )-.5) + predicted_label_train)) < 1,
+     detector.multiplier = 1;
+ else
+     detector.multiplier = -1;
+ end
+ 
+ incorrectpredictions=sum(abs(2*((detector.multiplier*scorestrain > 0 )-.5) ...
+     + predicted_label_train));
+ fprintf('this really should be zero %d\n', incorrectpredictions);
 
 
 %svmStruct = svmtrain(detector.gt',detector.FD);
@@ -229,8 +243,7 @@ naiveperformance = abs(sum(newtestgt)/length(newtestgt))/2 + .5 %baseline
 %end
 
 % run detector on test images
-function out = test(VOCopts,cls,detector)
-return 
+function out = test(VOCopts,cls,detector) 
 TEST_IMAGES=100;
 
 % load test set ('val' for development kit)
@@ -241,7 +254,8 @@ fid=fopen(sprintf(VOCopts.detrespath,'comp3',cls),'w');
 
 % apply detector to each image
 tic;
-for i=1:length(ids)
+%for i=1:length(ids)
+for i=1:TEST_IMAGES,
     % display progress
     if toc>1
         fprintf('%s: test: %d/%d\n',cls,i,length(ids));
@@ -280,16 +294,29 @@ fd = HOG(VOCopts,I);
 % bounding boxes of nearest positive training image are output
 function [c,BB] = detect(VOCopts,detector,fd)
 
-VOCopts.firstdim
-
 xdim = size(fd,1);
 ydim = size(fd,2);
 
+c = [];
+BB = [];
+
 for x = 1+VOCopts.firstdim/2 :xdim - VOCopts.firstdim/2,
     for y = 1+VOCopts.seconddim/2:ydim - VOCopts.seconddim/2,
-        [x y]
+        [pixelBox, pixelCenter]=HOGSpaceToPixelSpace(VOCopts, [x;y]);
+        [HOGCenter, HOGVector] = pixelSpaceToHOGSpace(VOCopts, fd, pixelCenter);
+        score = detector.multiplier*HOGVector*detector.w';
+        if score>1,
+            c = [c score];
+            newboundingbox = [pixelBox(3); pixelBox(1);pixelBox(4); pixelBox(2)];
+            BB = [BB newboundingbox];
+            %disp 'gotta match'
+        end
+        
     end
 end
+
+fprintf('number of matches found %d out of %d\n', length(c), (xdim-VOCopts.firstdim)...
+    *(ydim-VOCopts.seconddim));
 
 
 % iterate through and fire if we're bigger than some cutoff.
