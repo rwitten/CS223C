@@ -41,20 +41,20 @@ H=hog;
 
 
 function vector=extractHog(grad_xr,grad_yu, blocksize, cellsize, numgradientdirections, x,y,xdirection,ydirection)
-totalx = 0;
-totaly = 0;
+totalsquarex = 0;
+totalsquarey = 0;
 eps = 1e-4;
 for i= 0+xdirection:1+xdirection,
     for j=0+ydirection:1+ydirection
-        totalx = totalx+sum(sum(grad_xr((x+i-1)*cellsize+1:(x+i)*cellsize, (y+j-1)*cellsize+1:(y+j)*cellsize)));
-        totaly = totaly+sum(sum(grad_yu((x+i-1)*cellsize+1:(x+i)*cellsize, (y+j-1)*cellsize+1:(y+j)*cellsize)));
+        totalsquarex = totalsquarex+sum(sum(grad_xr((x+i-1)*cellsize+1:(x+i)*cellsize, (y+j-1)*cellsize+1:(y+j)*cellsize).^2));
+        totalsquarey = totalsquarey+sum(sum(grad_yu((x+i-1)*cellsize+1:(x+i)*cellsize, (y+j-1)*cellsize+1:(y+j)*cellsize).^2));
     end
 end
 
-averageMag = sqrt(totalx^2  + totaly^2 + eps^2);
+averageMag = sqrt(totalsquarex  + totalsquarey + eps^2);
 
-yblock = grad_yu( (x-1)*8+1:8*x, (y-1)*8+1:8*y);%/averageMag;
-xblock = grad_xr( (x-1)*8+1:8*x, (y-1)*8+1:8*y);%/averageMag;
+yblock = grad_yu( (x-1)*8+1:8*x, (y-1)*8+1:8*y)/averageMag;
+xblock = grad_xr( (x-1)*8+1:8*x, (y-1)*8+1:8*y)/averageMag;
 angles = pi - abs(mod(atan2(yblock, xblock),2*pi) - pi);
 
 
