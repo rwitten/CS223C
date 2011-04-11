@@ -13,7 +13,7 @@ cellsize =  VOCOpts.cellsize;
 numgradientdirections = VOCOpts.numgradientdirections;
 
 
-Im = Im(:,:,1);
+Im = Im(:,:,2);
 hx = [-1,0, 1];
 hy = -hx';
 
@@ -22,7 +22,7 @@ grad_xr = imfilter(double(Im),hx); %O. Ludwig, D. Delgado, V. Goncalves, and U. 
                                    %gave me some wise guidance on how to do this.
                                    
 grad_yu = imfilter(double(Im),hy);
-angles=abs(atan2(grad_yu,grad_xr)); %this is unsigned!
+angles=atan(grad_yu./grad_xr); %this is unsigned!
 
 hog = zeros(floor(size(Im,1)/cellsize)-2,floor(size(Im,2)/cellsize)-2, numgradientdirections*4);
 
@@ -59,7 +59,7 @@ averagey = totaly/(blocksize^2*cellsize^2);
 
 yblock = grad_yu( (x-1)*8+1:8*x, (y-1)*8+1:8*y)-averagex;
 xblock = grad_xr( (x-1)*8+1:8*x, (y-1)*8+1:8*y)-averagey;
-angles = atan2(yblock, xblock);
+angles = atan(yblock./ xblock);
 
 vector = bucketize(angles, yblock, xblock, numgradientdirections);
 
