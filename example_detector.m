@@ -95,7 +95,7 @@ while TRAIN_IMAGES>length(detector.gt),
         
         %detector.FD = [detector.FD;extractExample(VOCopts, a{1},fd )]; 
 
-        examples = extractExample(VOCopts, a{1},fd);
+        examples = extractExample(VOCopts, a{1},fd, I);
         
         for image=1:size(examples,1),
             key= num2str(examples(image,:));
