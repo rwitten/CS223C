@@ -11,8 +11,8 @@ VOCopts.cellsize =  8;
 VOCopts.numgradientdirections = 9;
 VOCopts.firstdim = 10;
 VOCopts.seconddim=6;
-VOCopts.rootfilterminingiters=5;
-VOCopts.rootfilterupdateiters=2;
+VOCopts.rootfilterminingiters=1;
+VOCopts.rootfilterupdateiters=1;
 VOCopts.pyramidscale = 1/1.15;
 VOCopts.hognormclip = 0.2;
 %VOCopts.firstdim = 32; %empirical average!
@@ -34,9 +34,10 @@ function [newexamples, newgt,newimagenumberlabels,labels] = fillexamples(VOCopts
 % load 'train' image set
 ids=textread(sprintf(VOCopts.imgsetpath,'train'),'%s');
 
-TOTAL_IMAGES=length(ids);
+%TOTAL_IMAGES=length(ids);
 %TOTAL_IMAGES=2500;
-TRAIN_IMAGES=100;
+TOTAL_IMAGES=10;
+TRAIN_IMAGES=10;
 
 % extract features and bounding boxes
 detector.FD=[];
@@ -81,17 +82,7 @@ while TRAIN_IMAGES>length(detector.gt),
     end
     if gt
         % extract features for image
-        try
-            % try to load features
-            load(sprintf(VOCopts.exfdpath,ids{i}),'fd');
-        catch
-            % compute and save features
-            I=imread(sprintf(VOCopts.imgpath,ids{i}));
-            fd=extractfd(VOCopts,I);
-            save(sprintf(VOCopts.exfdpath,ids{i}),'fd');
-        end
-        
-        I=imread(sprintf(VOCopts.imgpath,ids{i}));
+        fd = getFeatures(VOCopts, ids{i});
         
         %VOCopts.exfdpath
         
@@ -198,7 +189,7 @@ labels = containers.Map();
 
 savedfeatures = [];
 savedgt = [];
-savedimagelabel=[]
+savedimagelabel=[];
 
 for i=1:VOCopts.rootfilterminingiters, %this is finding "Root Filter Initialization"
     fprintf('we are on iteration %d\n', i);
@@ -217,14 +208,11 @@ for i=1:VOCopts.rootfilterminingiters, %this is finding "Root Filter Initializat
 end
 
 for i=1:VOCopts.rootfilterupdateiters,%this step is "Root Filter Update"
+    [newexamples] = findNewPositives(VOCopts, cls, newgt, newexamples, newimagenumbers,newdetector);
 end
-
-
 
 [detector]=finaltrainandtest(VOCopts, cls, newgt, newexamples,labels);
 
-
-newexamples = findBestExamples(VOCopts, cls, newgt, newexamples, newimagenumbers);
 
 function [detector] = finaltrainandtest(VOCopts, cls, newgt, newexamples,labels)
 
@@ -309,19 +297,6 @@ end
 
 % close results file
 fclose(fid);
-
-function fd = extractfd(VOCopts,I)
-minfirstdim = (VOCopts.firstdim+2) * VOCopts.cellsize;
-minseconddim = (VOCopts.seconddim+2) * VOCopts.cellsize;
-curScale = 1;
-curI = I;
-fd = {};
-while (size(curI,1) >= minfirstdim && size(curI,2) >= minseconddim)
-    curFd = HOG(VOCopts, curI);
-    fd = [fd curFd];
-    curScale = curScale * VOCopts.pyramidscale;
-    curI = imresize(I, curScale, 'bilinear'); 
-end
 
 
 % trivial detector: confidence is computed as in example_classifier, and
