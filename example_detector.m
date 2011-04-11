@@ -12,6 +12,8 @@ VOCopts.numgradientdirections = 9;
 VOCopts.firstdim = 10;
 VOCopts.seconddim=6;
 VOCopts.miningiters=15;
+VOCopts.pyramidscale = 1.15;
+VOCopts.hognormclip = 0.2;
 %VOCopts.firstdim = 32; %empirical average!
 %VOCopts.seconddim=22;  %empirical average!
 
