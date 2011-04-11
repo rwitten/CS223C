@@ -27,14 +27,14 @@ else
         x2 = currbox(3);
         y2 = currbox(4);
         newcenter = [floor((x2 + x1)/2); floor((y2 + y1)/2)];
-        offset = [(.5)*(rand-.5)*(x2-x1); .5*(rand-.5)*(y2-y1)];
+        offset = [(.5)*(rand-.5)*(y2-y1); .5*(rand-.5)*(x2-x1)];
         yScale = log2(abs(y2-y1)/(VOCopts.firstdim*VOCopts.cellsize))/log2(1/VOCopts.pyramidscale);
         xScale = log2(abs(x2-x1)/(VOCopts.seconddim*VOCopts.cellsize))/log2(1/VOCopts.pyramidscale);
         scaleIndex = min(length(features)-1,max(0,round((xScale + yScale)/2))) + 1;
         %newcenter = newcenter + offset;
         centers = [centers newcenter];
         pyramidIndices = [pyramidIndices scaleIndex];
-        figure();
+        %figure();
         %drawBoundingBox(VOCopts, I, currbox, scaleIndex);
         
     end

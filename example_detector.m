@@ -198,7 +198,7 @@ labels = containers.Map();
 
 savedfeatures = [];
 savedgt = [];
-savedimagelabel=[]
+savedimagelabel=[];
 
 for i=1:VOCopts.rootfilterminingiters, %this is finding "Root Filter Initialization"
     fprintf('we are on iteration %d\n', i);
