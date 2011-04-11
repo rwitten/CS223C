@@ -24,10 +24,6 @@ grad_xr = imfilter(double(Im),hx); %O. Ludwig, D. Delgado, V. Goncalves, and U. 
                                    %gave me some wise guidance on how to do this.
                                    
 grad_yu = imfilter(double(Im),hy);
-<<<<<<< HEAD
-angles=(atan(grad_yu,grad_xr)); %this is unsigned!
-=======
->>>>>>> b8a33e1026d16aec9215a38b5f8d3c934e9a1ec3
 
 %Populate orientaiton vectors for each cell
 cellGrid = zeros(floor(size(Im,1)/cellsize), floor(size(Im,2)/cellsize),numgradientdirections);
