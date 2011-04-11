@@ -1,12 +1,13 @@
-function [HOGCenter, HOGVector] = pixelSpaceToHOGSpace(VOCopts, features, pixelcenter)
+function [HOGCenter, HOGVector] = pixelSpaceToHOGSpace(VOCopts, features, pixelcenter, pyramidIndex)
 HOGCenter = ceil(pixelcenter/8)-1;
 
 firstlower = ceil(HOGCenter(1)-VOCopts.firstdim/2);
 firstupper = ceil(HOGCenter(1)+VOCopts.firstdim/2-1);
 secondlower = ceil(HOGCenter(2)-VOCopts.seconddim/2);
 secondupper = ceil(HOGCenter(2)+VOCopts.seconddim/2-1);
+featuresAtPyramidLevel = features{pyramidIndex};
 
-if size(features,1) < VOCopts.firstdim || size(features,2) < VOCopts.seconddim,
+if size(featuresAtPyramidLevel,1) < VOCopts.firstdim || size(featuresAtPyramidLevel,2) < VOCopts.seconddim,
     HOGCenter = [];
     HOGVector = [];
     return;
@@ -14,25 +15,25 @@ end
 
 if firstlower < 1,
     firstlower = 1;
-    firstupper = VOCopts.firstdim;
+    firstupper = min(size(featuresAtPyramidLevel,1),VOCopts.firstdim);
 end
 
-if firstupper > size(features,1),
-    firstlower = size(features,1)-VOCopts.firstdim+1;
-    firstupper = size(features,1);
+if firstupper > size(featuresAtPyramidLevel,1),
+    firstlower = max(1,size(featuresAtPyramidLevel,1)-VOCopts.firstdim+1);
+    firstupper = size(featuresAtPyramidLevel,1);
 end
 
 if secondlower < 1,
     secondlower = 1;
-    secondupper = VOCopts.seconddim;
+    secondupper = min(size(featuresAtPyramidLevel,2),VOCopts.seconddim);
 end
 
-if secondupper > size(features,2),
-    secondlower = size(features,2)-VOCopts.seconddim+1;
-    secondupper = size(features,2);
+if secondupper > size(featuresAtPyramidLevel,2),
+    secondlower = max(1,size(featuresAtPyramidLevel,2)-VOCopts.seconddim+1);
+    secondupper = size(featuresAtPyramidLevel,2);
 end
 
-HOGVector = reshape(features(firstlower:firstupper, secondlower:secondupper, :)...
-    ,[1, prod(size(features(firstlower:firstupper, secondlower:secondupper, :)))]);
+HOGRegion = featuresAtPyramidLevel(firstlower:firstupper, secondlower:secondupper, :);
+HOGVector = reshape(HOGRegion,[1, prod(size(HOGRegion))]);
   
 end
