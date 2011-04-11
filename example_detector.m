@@ -11,7 +11,7 @@ VOCopts.cellsize =  8;
 VOCopts.numgradientdirections = 9;
 VOCopts.firstdim = 10;
 VOCopts.seconddim=6;
-VOCopts.miningiters=5;
+VOCopts.miningiters=15;
 %VOCopts.firstdim = 32; %empirical average!
 %VOCopts.seconddim=22;  %empirical average!
 
@@ -31,7 +31,7 @@ function [newexamples, newgt,labels] = fillexamples(VOCopts,cls, originalexample
 ids=textread(sprintf(VOCopts.imgsetpath,'train'),'%s');
 
 TOTAL_IMAGES=length(ids);
-TRAIN_IMAGES=100;
+TRAIN_IMAGES=4000;
 
 % extract features and bounding boxes
 detector.FD=[];
@@ -72,7 +72,6 @@ while TRAIN_IMAGES>length(detector.gt),
     else
         gt=0;           % only difficult objects
     end
-
     if gt
         % extract features for image
         try
@@ -86,7 +85,6 @@ while TRAIN_IMAGES>length(detector.gt),
         end
         
         I=imread(sprintf(VOCopts.imgpath,ids{i}));
-        imwrite(I, sprintf('savedimage%dwithagt%d.png', i,gt), 'png');
         
         %VOCopts.exfdpath
         
@@ -130,75 +128,47 @@ for i=1:length(savedgt)
 end
 
 function [newdetector,hardexamples, hardgt]=extractHardExamples(newexamples,newgt)
-halfway = floor(length(newgt)/2);
-
-traingt = newgt(1:halfway);
-testgt = newgt(halfway+1:end);
-trainfd = newexamples(1:halfway, :);
-testfd = newexamples(halfway+1:end, :);
-
-%svmStruct = svmtrain(traingt',trainfd);
-svmStructTrain = liblineartrain(traingt',sparse(trainfd), '-s 2 -B 1 -q');
-svmStructTest = liblineartrain(testgt',sparse(testfd), '-s 2 -B 1 -q'); 
-                                        %svmStructTrain is trained on
-                                        %train data and svmStructTest
-                                        %is trained on test data.
+svmStruct = liblineartrain(newgt',sparse(newexamples),'-s 2 -B 1 -q');
 
 %[predicted_label, accuracy, decision_values] ...
 %   = svmpredict(traingt',trainfd,svmStruct);
 
 
 disp 'How we do overall'
-[predicted_label_train, accuracy] ...
-   = liblinearpredict(testgt',sparse(testfd),svmStructTrain);
-[predicted_label_test, accuracy] ...
-   = liblinearpredict(traingt',sparse(trainfd),svmStructTest);
 naiveperformance = abs(sum(newgt)/length(newgt))/2 + .5 %baseline
-size(testfd)
-scorestrain = [testfd,ones(size(testfd,1),1)] * svmStructTrain.w';
-scorestest = [trainfd,ones(size(trainfd,1),1)] * svmStructTest.w';
+[predicted_label, accuracy] ...
+   = liblinearpredict(newgt',sparse(newexamples),svmStruct);
 
-howbadwedidtrain = scorestrain.*testgt';
-howbadwedidtest = scorestest.*traingt';
 
-empiricalerrorstrain = sum(2*((scorestrain > 0 )-.5) == predicted_label_train);
+scores = [newexamples,ones(size(newexamples,1),1)] * svmStruct.w';
+
+empiricalerrors= sum(2*((scores > 0 )-.5) == predicted_label);
                                                     % this should be 0
-empiricalerrorstest = sum(2*((scorestest > 0 )-.5) == predicted_label_test);
-                                                    % this should be 0
-
-if empiricalerrorstest>0,
+svmStruct.multiplier = -1;
+if empiricalerrors>0,
     fprintf('number of errors %d vs. number of examples %d', ...
-        empiricalerrorstest,length(scorestest));
-    howbadwedidtest = howbadwedidtest*(-1);
+        empiricalerrors,length(scores));
+    svmStruct.multiplier = 1;
 end
+howbadwedid = svmStruct.multiplier .*scores.*newgt';
 
-if empiricalerrorstrain>0,
-    fprintf('number of errors %d vs. number of examples %d', ...
-        empiricalerrorstrain,length(scorestest));
-    howbadwedidtrain = howbadwedidtrain*(-1);
-end
+badnesscutoff = median(howbadwedid)
 
-badnesscutofftrain = median(howbadwedidtrain)
-badnesscutofftest = median(howbadwedidtest)
-
-savedfeatures = NaN * ones(length(howbadwedidtrain)+length(howbadwedidtest),...
+savedfeatures = NaN * ones(length(howbadwedid),...
     size(newexamples,2));
 
 savedgt = [];
 
-for i=1:length(howbadwedidtrain),
-    if howbadwedidtrain(i)<badnesscutofftrain,
-        savedgt(end+1) = testgt(i);
-        savedfeatures(length(savedgt),:) = testfd(i,:)';
+for i=1:length(howbadwedid),
+    if howbadwedid(i)<badnesscutoff,
+        savedgt(end+1) = newgt(i);
+        savedfeatures(length(savedgt),:) = newexamples(i,:)';
     end
 end
+newdetector=svmStruct;
+hardexamples=savedfeatures;
+hardgt = savedgt;
 
-for i=1:length(howbadwedidtest),
-    if howbadwedidtest(i)<badnesscutofftest,
-        savedgt(end+1) = traingt(i);
-        savedfeatures(length(savedgt),:) = trainfd(i,:)';
-    end
-end
 
 savedfeatures= savedfeatures(1:length(savedgt),:);
 
@@ -249,14 +219,14 @@ scores = [newtestexamples,ones(size(newtestexamples,1),1)] * detector.w';
 [predicted_label_test, accuracy] ...
        = liblinearpredict(newtestgt',sparse(newtestexamples),detector);
    
- if sum(abs(2*((scorestrain > 0 )-.5) - predicted_label_train)) < 1,
+ if sum(abs(2*((scores > 0 )-.5) - predicted_label_test)) < 1,
      detector.multiplier = 1;
  else
      detector.multiplier = -1;
  end
  
- incorrectpredictions=sum(abs(2*((detector.multiplier*scorestrain > 0 )-.5) ...
-     - predicted_label_train));
+ incorrectpredictions=sum(abs(2*((detector.multiplier*scores > 0 )-.5) ...
+     - predicted_label_test));
  fprintf('this really should be zero %d\n', incorrectpredictions);
 
 
