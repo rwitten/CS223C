@@ -12,6 +12,7 @@ VOCopts.numgradientdirections = 9;
 VOCopts.firstdim = 10;
 VOCopts.seconddim=6;
 VOCopts.rootfilterminingiters=5;
+VOCopts.rootfilterupdateiters=2;
 VOCopts.pyramidscale = 1.15;
 VOCopts.hognormclip = 0.2;
 %VOCopts.firstdim = 32; %empirical average!
@@ -27,19 +28,21 @@ drawnow;
 
 
 % train detector
-function [newexamples, newgt,labels] = fillexamples(VOCopts,cls, originalexamples, originalgt, labels)
+function [newexamples, newgt,newimagenumberlabels,labels] = fillexamples(VOCopts,cls, ...
+    originalexamples, originalgt, originalimagenumbers,labels)
 
 % load 'train' image set
 ids=textread(sprintf(VOCopts.imgsetpath,'train'),'%s');
 
 TOTAL_IMAGES=length(ids);
 %TOTAL_IMAGES=2500;
-TRAIN_IMAGES=500;
+TRAIN_IMAGES=100;
 
 % extract features and bounding boxes
 detector.FD=[];
 detector.bbox={};
 detector.gt=[];
+detector.imagenumberlabels = []; 
 tic;
 examples = [];
 
@@ -47,6 +50,7 @@ detector.FD = NaN * ones(TRAIN_IMAGES*10,4*VOCopts.numgradientdirections*VOCopts
     VOCopts.seconddim);
 
 if length(originalgt)>0,
+    detector.imagenumberlabels=originalimagenumbers;
     detector.gt = originalgt;
     detector.FD(1:length(detector.gt), :) = originalexamples;
 end
@@ -111,14 +115,16 @@ while TRAIN_IMAGES>length(detector.gt),
             = examples;
                                                    %one example for each bounding box, 
                                                    %should be a vector of size 
-                                                   %w*h * 4*9 
+                                                   %w*h * 4*9
         
+        detector.imagenumberlabels = [detector.imagenumberlabels, i*ones(1,size(examples,1))]; 
         detector.gt = [detector.gt, gt*ones(1,size(examples,1))]; 
         
     end
 end
 newgt=detector.gt;
 newexamples = detector.FD(1:length(newgt), :);
+newimagenumberlabels=detector.imagenumberlabels;
 
 function sanitycheck(labels, savedfeatures, savedgt)
 
@@ -130,7 +136,7 @@ for i=1:length(savedgt)
     end
 end
 
-function [newdetector,hardexamples, hardgt]=extractHardExamples(newexamples,newgt)
+function [newdetector,hardexamples, hardgt, hardimagelabel]=extractHardExamples(newexamples,newgt,newimagelabels)
 svmStruct = liblineartrain(newgt',sparse(newexamples),'-s 2 -B 1 -q');
 
 %[predicted_label, accuracy, decision_values] ...
@@ -161,16 +167,19 @@ savedfeatures = NaN * ones(length(howbadwedid),...
     size(newexamples,2));
 
 savedgt = [];
+savedimagelabel = [];
 
 for i=1:length(howbadwedid),
     if howbadwedid(i)<badnesscutoff,
         savedgt(end+1) = newgt(i);
+        savedimagelabel(end+1) = newimagelabels(i);
         savedfeatures(length(savedgt),:) = newexamples(i,:)';
     end
 end
 newdetector=svmStruct;
 hardexamples=savedfeatures(1:length(savedgt),:);
 hardgt = savedgt;
+hardimagelabel = savedimagelabel;
 
 fprintf('number of saved examples: %d\n',size(savedfeatures,1));
 
@@ -188,10 +197,12 @@ labels = containers.Map();
 
 savedfeatures = [];
 savedgt = [];
+savedimagelabel=[]
 
-for i=1:VOCopts.rootfilterminingiters, %this is finding an original root filter
+for i=1:VOCopts.rootfilterminingiters, %this is finding "Root Filter Initialization"
     fprintf('we are on iteration %d\n', i);
-    [newexamples, newgt,labels] = fillexamples(VOCopts, cls, savedfeatures, savedgt,labels);
+    [newexamples, newgt,newimagenumbers,labels] = ...
+        fillexamples(VOCopts, cls, savedfeatures, savedgt, savedimagelabel,labels);
     sanitycheck(labels, newexamples,newgt);
     fprintf('number of examples to train on: %d\n',length(newgt));
     
@@ -199,15 +210,20 @@ for i=1:VOCopts.rootfilterminingiters, %this is finding an original root filter
     
     newgt = newgt(perm);
     newexamples = newexamples(perm, :);
+    newimagenumbers = newimagenumbers(perm);
     
-    [newdetector, savedfeatures, savedgt] = extractHardExamples(newexamples, newgt);
+    [newdetector, savedfeatures, savedgt, savedimagelabel] = extractHardExamples(newexamples, newgt,newimagenumbers);
 end
 
-%here we have hard examples, but we need to find new bounding boxes.
+for i=1:VOCopts.rootfilterupdateiters,%this step is "Root Filter Update"
+end
 
 
 
 [detector]=finaltrainandtest(VOCopts, cls, newgt, newexamples,labels);
+
+
+newexamples = findBestExamples(VOCopts, cls, newgt, newexamples, newimagenumbers);
 
 function [detector] = finaltrainandtest(VOCopts, cls, newgt, newexamples,labels)
 
@@ -215,7 +231,7 @@ disp 'final showdown'
 detector = liblineartrain(newgt',sparse(newexamples), '-s 2 -B 1 -q');
                       %we need to train a final detector on hard examples
 disp 'detector trained'                   
-[newtestexamples, newtestgt] = fillexamples(VOCopts, cls, [], [], labels);
+[newtestexamples, newtestgt] = fillexamples(VOCopts, cls, [], [], [],labels);
 
 
 disp 'testing detector'
