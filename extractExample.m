@@ -7,12 +7,17 @@ ydim = size(features,2)*VOCopts.cellsize;
 
 if size(boundingbox,1)<1,
     centers = [];
-    for i=1:3,
-      centers = [centers [floor(rand()*xdim); floor(rand()*ydim)]];
+    pyramidIndices = [];
+    for i=1:5
+      newPyramidIndex = floor(rand()*length(features) + 1);
+      scale = VOCopts.pyramidscale ^ (newPyramidIndex-1);
+      centers = [centers [floor(rand()*scale*xdim); floor(rand()*scale*ydim)]];
+      pyramidIndices = [pyramidIndices newPyramidIndex];
     end
     
 else
     centers = [];
+    pyramidIndices = [];
     
     for i= 1:size(boundingbox,2),
         currbox = boundingbox(:,i);
@@ -23,8 +28,12 @@ else
         x2 = currbox(4);
         newcenter = [floor((x2 + x1)/2); floor((y2 + y1)/2)];
         offset = [(.5)*(rand-.5)*(x2-x1); .5*(rand-.5)*(y2-y1)];
+        yScale = log2(abs(y2-y1)/VOCopts.firstdim)/log2(1/VOCopts.pyramidscale);
+        xScale = log2(abs(x2-x1)/VOCopts.seconddim)/log2(1/VOCopts.pyramidscale);
+        scaleIndex = min(length(features)-1,max(0,round((xScale + yScale)/2))) + 1;
         %newcenter = newcenter + offset;
         centers = [centers newcenter];
+        pyramidIndices = [pyramidIndices scaleIndex];
         
     end
 end
@@ -32,7 +41,7 @@ end
 HOGVectors = [];
 
 for i=1:size(centers,2),
-    [HOGCenter, HOGVector]=pixelSpaceToHOGSpace(VOCopts, features, centers(:,i));
+    [HOGCenter, HOGVector]=pixelSpaceToHOGSpace(VOCopts, features, centers(:,i), pyramidIndices(i));
     HOGVectors = [HOGVectors; HOGVector];
 end
 

@@ -13,7 +13,7 @@ VOCopts.firstdim = 10;
 VOCopts.seconddim=6;
 VOCopts.rootfilterminingiters=5;
 VOCopts.rootfilterupdateiters=2;
-VOCopts.pyramidscale = 1.15;
+VOCopts.pyramidscale = 1/1.15;
 VOCopts.hognormclip = 0.2;
 %VOCopts.firstdim = 32; %empirical average!
 %VOCopts.seconddim=22;  %empirical average!
@@ -103,7 +103,8 @@ while TRAIN_IMAGES>length(detector.gt),
         a= detector.bbox(end);
         
         %detector.FD = [detector.FD;extractExample(VOCopts, a{1},fd )]; 
-        examples = extractExample(VOCopts, a{1},fd );
+
+        examples = extractExample(VOCopts, a{1},fd);
         
         for image=1:size(examples,1),
             key= num2str(examples(image,:));
@@ -310,8 +311,18 @@ end
 fclose(fid);
 
 function fd = extractfd(VOCopts,I)
+minfirstdim = (VOCopts.firstdim+2) * VOCopts.cellsize;
+minseconddim = (VOCopts.seconddim+2) * VOCopts.cellsize;
+curScale = 1;
+curI = I;
+fd = {};
+while (size(curI,1) >= minfirstdim && size(curI,2) >= minseconddim)
+    curFd = HOG(VOCopts, curI);
+    fd = [fd curFd];
+    curScale = curScale * VOCopts.pyramidscale;
+    curI = imresize(I, curScale, 'bilinear'); 
+end
 
-fd = HOG(VOCopts,I);
 
 % trivial detector: confidence is computed as in example_classifier, and
 % bounding boxes of nearest positive training image are output
