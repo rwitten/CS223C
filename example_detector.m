@@ -11,7 +11,7 @@ VOCopts.cellsize =  8;
 VOCopts.numgradientdirections = 9;
 VOCopts.firstdim = 10;
 VOCopts.seconddim=6;
-VOCopts.miningiters=15;
+VOCopts.rootfilterminingiters=5;
 VOCopts.pyramidscale = 1.15;
 VOCopts.hognormclip = 0.2;
 %VOCopts.firstdim = 32; %empirical average!
@@ -33,7 +33,8 @@ function [newexamples, newgt,labels] = fillexamples(VOCopts,cls, originalexample
 ids=textread(sprintf(VOCopts.imgsetpath,'train'),'%s');
 
 TOTAL_IMAGES=length(ids);
-TRAIN_IMAGES=4000;
+%TOTAL_IMAGES=2500;
+TRAIN_IMAGES=500;
 
 % extract features and bounding boxes
 detector.FD=[];
@@ -168,11 +169,8 @@ for i=1:length(howbadwedid),
     end
 end
 newdetector=svmStruct;
-hardexamples=savedfeatures;
+hardexamples=savedfeatures(1:length(savedgt),:);
 hardgt = savedgt;
-
-
-savedfeatures= savedfeatures(1:length(savedgt),:);
 
 fprintf('number of saved examples: %d\n',size(savedfeatures,1));
 
@@ -191,7 +189,7 @@ labels = containers.Map();
 savedfeatures = [];
 savedgt = [];
 
-for i=1:VOCopts.miningiters,
+for i=1:VOCopts.rootfilterminingiters, %this is finding an original root filter
     fprintf('we are on iteration %d\n', i);
     [newexamples, newgt,labels] = fillexamples(VOCopts, cls, savedfeatures, savedgt,labels);
     sanitycheck(labels, newexamples,newgt);
@@ -202,10 +200,16 @@ for i=1:VOCopts.miningiters,
     newgt = newgt(perm);
     newexamples = newexamples(perm, :);
     
-    [newdetector, hardexamples, hardgt] = extractHardExamples(newexamples, newgt);
-    
-    
+    [newdetector, savedfeatures, savedgt] = extractHardExamples(newexamples, newgt);
 end
+
+%here we have hard examples, but we need to find new bounding boxes.
+
+
+
+[detector]=finaltrainandtest(VOCopts, cls, newgt, newexamples,labels);
+
+function [detector] = finaltrainandtest(VOCopts, cls, newgt, newexamples,labels)
 
 disp 'final showdown'
 detector = liblineartrain(newgt',sparse(newexamples), '-s 2 -B 1 -q');
