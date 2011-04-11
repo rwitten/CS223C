@@ -31,7 +31,7 @@ function [newexamples, newgt] = fillexamples(VOCopts,cls, originalexamples, orig
 ids=textread(sprintf(VOCopts.imgsetpath,'train'),'%s');
 
 TOTAL_IMAGES=length(ids);
-TRAIN_IMAGES=200;
+TRAIN_IMAGES=1000;
 
 % extract features and bounding boxes
 detector.FD=[];
@@ -109,8 +109,6 @@ end
 newgt=detector.gt;
 newexamples = detector.FD(1:length(newgt), :);
 
-detector.FD = detector.FD(1:length(detector.gt), :);
-
 
 function [detector] = train(VOCopts,cls)
 
@@ -151,30 +149,22 @@ for i=1:VOCopts.miningiters,
        = liblinearpredict(testgt',sparse(testfd),svmStructTrain);
     [predicted_label_test, accuracy] ...
        = liblinearpredict(traingt',sparse(trainfd),svmStructTest);
-   naiveperformance = abs(sum(newgt)/length(newgt))/2 + .5 %baseline
+    naiveperformance = abs(sum(newgt)/length(newgt))/2 + .5 %baseline
     size(testfd)
     scorestrain = [testfd,ones(size(testfd,1),1)] * svmStructTrain.w';
     scorestest = [trainfd,ones(size(trainfd,1),1)] * svmStructTest.w';
     
-    empiricalerrorstrain = sum(abs(2*((scorestrain > 0 )-.5) + predicted_label_train)); % this should be 0
-    if empiricalerrorstrain > 1,
-       howbadwedidtrain = scorestrain.*testgt';
-    else
-       howbadwedidtrain = -scorestrain.*testgt';
-    end
+    howbadwedidtrain = scorestrain.*testgt';
+    howbadwedidtest = scorestest.*traingt';
     
-    empiricalerrorstest = sum(abs(2*((scorestest > 0 )-.5) + predicted_label_test)); % this should be 0
-    if empiricalerrorstest > 1,
-       howbadwedidtest = scorestest.*traingt';
-    else
-       howbadwedidtest = -scorestest.*traingt';
-    end
-     
+    empiricalerrorstrain = sum(2*((scorestrain > 0 )-.5) == predicted_label_train) % this should be 0
+    empiricalerrorstest = sum(2*((scorestest > 0 )-.5) == predicted_label_test) % this should be 0
+         
     badnesscutofftrain = median(howbadwedidtrain)
     badnesscutofftest = median(howbadwedidtest)
 
-    savedfeatures = NaN * ones(length(howbadwedidtrain)+length(howbadwedidtest)...
-        , size(newexamples,2));
+    savedfeatures = NaN * ones(length(howbadwedidtrain)+length(howbadwedidtest),...
+        size(newexamples,2));
 
     savedgt = [];
 
