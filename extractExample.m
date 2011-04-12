@@ -1,4 +1,4 @@
-function [ HOGVectors ] = extractExample( VOCopts, boundingbox,features, I )
+function [ HOGVectors ] = extractExample( VOCopts, boundingbox,features )
 %EXTRACTEXAMPLE Summary of this function goes here
 %   Extract either a positive or a negative example from the image
 
@@ -26,7 +26,7 @@ else
         y1 = currbox(2);
         x2 = currbox(3);
         y2 = currbox(4);
-        newcenter = [floor((x2 + x1)/2); floor((y2 + y1)/2)];
+        newcenter = [floor((y2 + y1)/2); floor((x2 + x1)/2)];
         offset = [(.5)*(rand-.5)*(y2-y1); .5*(rand-.5)*(x2-x1)];
         yScale = log2(abs(y2-y1)/(VOCopts.firstdim*VOCopts.cellsize))/log2(1/VOCopts.pyramidscale);
         xScale = log2(abs(x2-x1)/(VOCopts.seconddim*VOCopts.cellsize))/log2(1/VOCopts.pyramidscale);

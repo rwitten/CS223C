@@ -36,8 +36,8 @@ ids=textread(sprintf(VOCopts.imgsetpath,'train'),'%s');
 
 %TOTAL_IMAGES=length(ids);
 %TOTAL_IMAGES=2500;
-TOTAL_IMAGES=10;
-TRAIN_IMAGES=10;
+TOTAL_IMAGES=100;
+TRAIN_IMAGES=100;
 
 % extract features and bounding boxes
 detector.FD=[];
@@ -95,7 +95,7 @@ while TRAIN_IMAGES>length(detector.gt),
         
         %detector.FD = [detector.FD;extractExample(VOCopts, a{1},fd )]; 
 
-        examples = extractExample(VOCopts, a{1},fd, I);
+        examples = extractExample(VOCopts, a{1},fd);
         
         for image=1:size(examples,1),
             key= num2str(examples(image,:));
@@ -108,9 +108,13 @@ while TRAIN_IMAGES>length(detector.gt),
                                                    %one example for each bounding box, 
                                                    %should be a vector of size 
                                                    %w*h * 4*9
-        
+        if gt==-1,
+          labelvalues = gt*ones(1,size(examples,1));
+        else
+          labelvalues = 1:size(examples);
+        end
         detector.imagenumberlabels = [detector.imagenumberlabels, i*ones(1,size(examples,1))]; 
-        detector.gt = [detector.gt, gt*ones(1,size(examples,1))]; 
+        detector.gt = [detector.gt, labelvalues]; 
         
     end
 end
@@ -129,7 +133,8 @@ for i=1:length(savedgt)
 end
 
 function [newdetector,hardexamples, hardgt, hardimagelabel]=extractHardExamples(newexamples,newgt,newimagelabels)
-svmStruct = liblineartrain(newgt',sparse(newexamples),'-s 2 -B 1 -q');
+binaryizegt = 2*((newgt>0)-.5);
+svmStruct = liblineartrain(binaryizegt',sparse(newexamples),'-s 2 -B 1 -q');
 
 %[predicted_label, accuracy, decision_values] ...
 %   = svmpredict(traingt',trainfd,svmStruct);
@@ -137,8 +142,9 @@ svmStruct = liblineartrain(newgt',sparse(newexamples),'-s 2 -B 1 -q');
 
 disp 'How we do overall'
 naiveperformance = abs(sum(newgt)/length(newgt))/2 + .5 %baseline
+binaryizegt = 2*((newgt>0)-.5);
 [predicted_label, accuracy] ...
-   = liblinearpredict(newgt',sparse(newexamples),svmStruct);
+   = liblinearpredict(binaryizegt',sparse(newexamples),svmStruct);
 
 
 scores = [newexamples,ones(size(newexamples,1),1)] * svmStruct.w';
@@ -217,7 +223,8 @@ end
 function [detector] = finaltrainandtest(VOCopts, cls, newgt, newexamples,labels)
 
 disp 'final showdown'
-detector = liblineartrain(newgt',sparse(newexamples), '-s 2 -B 1 -q');
+binaryizegt = 2*((newgt>0)-.5);
+detector = liblineartrain(binaryizegt',sparse(newexamples), '-s 2 -B 1 -q');
                       %we need to train a final detector on hard examples
 disp 'detector trained'                   
 [newtestexamples, newtestgt] = fillexamples(VOCopts, cls, [], [], [],labels);
@@ -227,8 +234,10 @@ disp 'testing detector'
 naiveperformance = abs(sum(newtestgt)/length(newtestgt))/2 + .5 %baseline
 
 scores = [newtestexamples,ones(size(newtestexamples,1),1)] * detector.w';
+
+binaryizegt = 2*((newtestgt>0)-.5);
 [predicted_label_test, accuracy] ...
-       = liblinearpredict(newtestgt',sparse(newtestexamples),detector);
+       = liblinearpredict(binaryizegt',sparse(newtestexamples),detector);
    
  if sum(abs(2*((scores > 0 )-.5) - predicted_label_test)) < 1,
      detector.multiplier = 1;
