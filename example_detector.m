@@ -37,7 +37,7 @@ ids=textread(sprintf(VOCopts.imgsetpath,'train'),'%s');
 TOTAL_IMAGES=length(ids);
 %TOTAL_IMAGES=2500;
 %TOTAL_IMAGES=2500;
-TRAIN_IMAGES=500;
+TRAIN_IMAGES=50;
 
 % extract features and bounding boxes
 detector.FD=[];
