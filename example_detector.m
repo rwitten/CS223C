@@ -36,8 +36,8 @@ ids=textread(sprintf(VOCopts.imgsetpath,'train'),'%s');
 
 TOTAL_IMAGES=length(ids);
 %TOTAL_IMAGES=2500;
-%TOTAL_IMAGES=2500;
-TRAIN_IMAGES=50;
+%TOTAL_IMAGES=100;
+TRAIN_IMAGES=150;
 
 % extract features and bounding boxes
 detector.FD=[];
@@ -47,13 +47,13 @@ detector.imagenumberlabels = [];
 tic;
 examples = [];
 
-detector.FD = NaN * ones(TRAIN_IMAGES*10,4*VOCopts.numgradientdirections*VOCopts.firstdim* ...
+detector.FD = NaN * ones(TRAIN_IMAGES,4*VOCopts.numgradientdirections*VOCopts.firstdim* ...
     VOCopts.seconddim);
 
 if length(originalgt)>0,
     detector.imagenumberlabels=originalimagenumbers;
     detector.gt = originalgt;
-    detector.FD(1:length(detector.gt), :) = originalexamples;
+    detector.FD(1:min(TRAIN_IMAGES,length(detector.gt)), :) = originalexamples;
 end
 
 while TRAIN_IMAGES>length(detector.gt),
@@ -96,21 +96,26 @@ while TRAIN_IMAGES>length(detector.gt),
         %detector.FD = [detector.FD;extractExample(VOCopts, a{1},fd )]; 
 
         examples = extractExample(VOCopts, a{1},fd);
-        
-        for image=1:size(examples,1),
-            key= num2str(examples(image,:));
-            val = num2str(gt);
-            labels(key)=val;
+        if (size(examples,1) > 0)
+            for image=1:size(examples,1),
+                key= num2str(examples(image,:));
+                val = num2str(gt);
+                labels(key)=val;
+            end
+
+            detector.FD(length(detector.gt)+1:length(detector.gt)+size(examples,1),:) ...
+                = examples;
+                                                       %one example for each bounding box, 
+                                                       %should be a vector of size 
+                                                       %w*h * 4*9
+            if gt==-1,
+              labelvalues = gt*ones(1,size(examples,1));
+            else
+              labelvalues = 1:size(examples);
+            end
+            detector.imagenumberlabels = [detector.imagenumberlabels, i*ones(1,size(examples,1))]; 
+            detector.gt = [detector.gt, labelvalues]; 
         end
-        
-        detector.FD(length(detector.gt)+1:length(detector.gt)+size(examples,1),:) ...
-            = examples;
-                                                   %one example for each bounding box, 
-                                                   %should be a vector of size 
-                                                   %w*h * 4*9
-        
-        detector.imagenumberlabels = [detector.imagenumberlabels, i*ones(1,size(examples,1))]; 
-        detector.gt = [detector.gt, gt*ones(1,size(examples,1))]; 
         
     end
 end
@@ -129,16 +134,18 @@ for i=1:length(savedgt)
 end
 
 function [newdetector,hardexamples, hardgt, hardimagelabel]=extractHardExamples(newexamples,newgt,newimagelabels)
-svmStruct = liblineartrain(newgt',sparse(newexamples),'-s 2 -B 1 -q');
+binaryizegt = 2*((newgt>0)-.5);
+svmStruct = liblineartrain(binaryizegt',sparse(newexamples),'-s 2 -B 1 -q');
 
 %[predicted_label, accuracy, decision_values] ...
 %   = svmpredict(traingt',trainfd,svmStruct);
 
 
 disp 'How we do overall'
-naiveperformance = abs(sum(newgt)/length(newgt))/2 + .5 %baseline
+naiveperformance = abs(sum(binaryizegt)/length(binaryizegt))/2 + .5 %baseline
+binaryizegt = 2*((newgt>0)-.5);
 [predicted_label, accuracy] ...
-   = liblinearpredict(newgt',sparse(newexamples),svmStruct);
+   = liblinearpredict(binaryizegt',sparse(newexamples),svmStruct);
 
 
 scores = [newexamples,ones(size(newexamples,1),1)] * svmStruct.w';
@@ -217,18 +224,22 @@ end
 function [detector] = finaltrainandtest(VOCopts, cls, newgt, newexamples,labels)
 
 disp 'final showdown'
-detector = liblineartrain(newgt',sparse(newexamples), '-s 2 -B 1 -q');
+binaryizegt = 2*((newgt>0)-.5);
+detector = liblineartrain(binaryizegt',sparse(newexamples), '-s 2 -B 1 -q');
                       %we need to train a final detector on hard examples
 disp 'detector trained'                   
 [newtestexamples, newtestgt] = fillexamples(VOCopts, cls, [], [], [],labels);
 
 
 disp 'testing detector'
-naiveperformance = abs(sum(newtestgt)/length(newtestgt))/2 + .5 %baseline
+naiveperformance = abs((sum(newtestgt>0) - sum(newtestgt<0))/length(newtestgt))/2 + .5 %baseline
 
 scores = [newtestexamples,ones(size(newtestexamples,1),1)] * detector.w';
+
+binaryizegt = 2*((newtestgt>0)-.5);
 [predicted_label_test, accuracy] ...
-       = liblinearpredict(newtestgt',sparse(newtestexamples),detector);
+       = liblinearpredict(binaryizegt',sparse(newtestexamples),detector);
+   
    
  if sum(abs(2*((scores > 0 )-.5) - predicted_label_test)) < 1,
      detector.multiplier = 1;
@@ -303,24 +314,25 @@ fclose(fid);
 % bounding boxes of nearest positive training image are output
 function [c,BB] = detect(VOCopts,detector,fd)
 
-xdim = size(fd,1);
-ydim = size(fd,2);
-
 c = [];
 BB = [];
 
-for x = 1+VOCopts.firstdim/2 :xdim - VOCopts.firstdim/2,
-    for y = 1+VOCopts.seconddim/2:ydim - VOCopts.seconddim/2,
-        [pixelBox, pixelCenter]=HOGSpaceToPixelSpace(VOCopts, [x;y]);
-        [HOGCenter, HOGVector] = pixelSpaceToHOGSpace(VOCopts, fd, pixelCenter);
-        score = detector.multiplier*HOGVector*detector.w';
-        if score>1,
-            c = [c score];
-            newboundingbox = [pixelBox(3); pixelBox(1);pixelBox(4); pixelBox(2)];
-            BB = [BB newboundingbox];
-            %disp 'gotta match'
+for i=1:length(fd)
+    xdim = size(fd{i},1);
+    ydim = size(fd{i},2);
+    for x = 1+VOCopts.firstdim/2 :xdim - VOCopts.firstdim/2,
+        for y = 1+VOCopts.seconddim/2:ydim - VOCopts.seconddim/2,
+            [pixelBox, pixelCenter]=HOGSpaceToPixelSpace(VOCopts, [x;y], i);
+            [HOGCenter, HOGVector] = pixelSpaceToHOGSpace(VOCopts, fd{i}, pixelCenter);
+            score = detector.multiplier*HOGVector*detector.w';
+            if score>1,
+                c = [c score];
+                newboundingbox = [pixelBox(3); pixelBox(1);pixelBox(4); pixelBox(2)];
+                BB = [BB newboundingbox];
+                %disp 'gotta match'
+            end
+
         end
-        
     end
 end
 
