@@ -7,6 +7,6 @@ fd = {};
 while (size(curI,1) >= minfirstdim && size(curI,2) >= minseconddim)
     curFd = HOG(VOCopts, curI);
     fd = [fd curFd];
-    curScale = curScale * VOCopts.pyramidscale^2;
+    curScale = curScale * VOCopts.pyramidscale;
     curI = imresize(I, curScale, 'bilinear'); 
 end

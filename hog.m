@@ -29,32 +29,34 @@ grad_yu = imfilter(double(Im),hy);
 cellGrid = zeros(floor(size(Im,1)/cellsize), floor(size(Im,2)/cellsize),numgradientdirections);
 for x = 1:floor(size(Im,1)/cellsize)
     for y = 1:floor(size(Im,2)/cellsize)
-        yblock = grad_yu( ((x-1)*8+1):(8*x), ((y-1)*8+1):(8*y));
-        xblock = grad_xr( ((x-1)*8+1):(8*x), ((y-1)*8+1):(8*y));
+        yblock = grad_yu( ((x-1)*cellsize+1):(cellsize*x), ((y-1)*cellsize+1):(cellsize*y));
+        xblock = grad_xr( ((x-1)*cellsize+1):(cellsize*x), ((y-1)*cellsize+1):(cellsize*y));
         angles = mod(atan(yblock./xblock),pi);
         cellGrid(x,y,:) = bucketize(angles, yblock, xblock, numgradientdirections);
     end
 end
 
 %Normalize cells by block into features
-hog = zeros(size(cellGrid,1)-2, size(cellGrid,2)-2, numgradientdirections*4);
-for x = 2:size(cellGrid,1)-1
-    for y = 2:size(cellGrid,2)-1
-        Hupperright = squeeze(min(hognormclip, cellGrid(x,y,:) ./ sqrt(sum(sum(sum(cellGrid((x-1):x, y:(y+1), :).^2))) + eps^2)));
-        Hupperright = Hupperright ./ sqrt(norm(Hupperright,2)^2 + eps^2);
-        Hupperleft = squeeze(min(hognormclip, cellGrid(x,y,:) ./ sqrt(sum(sum(sum(cellGrid((x-1):x,(y-1):y, :).^2))) + eps^2)));
-        Hupperleft = Hupperleft ./ sqrt(norm(Hupperleft,2)^2 + eps^2);
-        Hlowerright = squeeze(min(hognormclip, cellGrid(x,y,:) ./ sqrt(sum(sum(sum(cellGrid(x:(x+1), y:(y+1), :).^2))) + eps^2)));
-        Hlowerright = Hlowerright./ sqrt(norm(Hlowerright,2)^2 + eps^2);
-        Hlowerleft = squeeze(min(hognormclip, cellGrid(x,y,:) ./ sqrt(sum(sum(sum(cellGrid(x:(x+1), (y-1):y, :).^2))) + eps^2)));
-        Hlowerleft = Hlowerleft ./ sqrt(norm(Hlowerleft,2)^2 + eps^2);
-        hog(x-1,y-1, :) = [Hupperright;Hupperleft;Hlowerright;Hlowerleft];
+hog = zeros(size(cellGrid,1)-2*(blocksize-1), size(cellGrid,2)-2*(blocksize-1), numgradientdirections*blocksize*blocksize);
+for x = blocksize:size(cellGrid,1)-(blocksize-1)
+    for y = blocksize:size(cellGrid,2)-(blocksize-1)
+        curVec = zeros(blocksize*blocksize*numgradientdirections,1);
+        for i=1:blocksize
+            for j = 1:blocksize
+                curBlock = cellGrid((x-i+1):(x+blocksize-i), (y-i+1):(y+blocksize-i), :);
+                curBlock = min(hognormclip, curBlock./sqrt(sum(sum(sum(curBlock.^2))) + eps^2));
+                curBlock = curBlock./sqrt(sum(sum(sum(curBlock.^2)))+eps^2);
+                curVec((blocksize*(i-1) + j-1)*numgradientdirections+(1:numgradientdirections)) = curBlock(i,j,:);
+            end
+        end
+               
+        hog(x-(blocksize-1),y-(blocksize-1), :) = curVec;
     end
 end
 
 H=hog;
 
-function vector= bucketize(angles, yblock, xblock, numgradientdirections);
+function vector= bucketize(angles, yblock, xblock, numgradientdirections)
 vector = zeros(numgradientdirections,1);
 eps = 1e-6;
 

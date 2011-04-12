@@ -13,8 +13,8 @@ VOCopts.firstdim = 10;
 VOCopts.seconddim=6;
 VOCopts.rootfilterminingiters=3;
 VOCopts.rootfilterupdateiters=3;
-VOCopts.pyramidscale = 1/1.05;
-VOCopts.hognormclip = 0.2;
+VOCopts.pyramidscale = 1/1.1;
+VOCopts.hognormclip = 1;
 %VOCopts.firstdim = 32; %empirical average!
 %VOCopts.seconddim=22;  %empirical average!
 
@@ -34,10 +34,10 @@ function [newexamples, newgt,newimagenumberlabels,labels] = fillexamples(VOCopts
 % load 'train' image set
 ids=textread(sprintf(VOCopts.imgsetpath,'train'),'%s');
 
-%TOTAL_IMAGES=length(ids);
+TOTAL_IMAGES=length(ids);
 %TOTAL_IMAGES=2500;
-TOTAL_IMAGES=2500;
-TRAIN_IMAGES=50;
+%TOTAL_IMAGES=2500;
+TRAIN_IMAGES=500;
 
 % extract features and bounding boxes
 detector.FD=[];
