@@ -8,7 +8,7 @@ function drawBoundingBox(I, boundingbox)
         x2 = currbox(3);
         y2 = currbox(4);
         
-        I(y1:y2,x1:x2,mod(i,3)) = 255;
+        I(y1:y2,x1:x2,mod(i,3)+1) = 255;
         image(I);
     end
 end
