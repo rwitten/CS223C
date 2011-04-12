@@ -11,8 +11,8 @@ VOCopts.cellsize =  8;
 VOCopts.numgradientdirections = 9;
 VOCopts.firstdim = 10;
 VOCopts.seconddim=6;
-VOCopts.rootfilterminingiters=1;
-VOCopts.rootfilterupdateiters=1;
+VOCopts.rootfilterminingiters=3;
+VOCopts.rootfilterupdateiters=3;
 VOCopts.pyramidscale = 1/1.15;
 VOCopts.hognormclip = 0.2;
 %VOCopts.firstdim = 32; %empirical average!
@@ -20,7 +20,7 @@ VOCopts.hognormclip = 0.2;
 
 % train and test detector for each class
 cls='person';
-detector=train(VOCopts,cls);                            % train detector
+ detector=train(VOCopts,cls);                            % train detector
 %test(VOCopts,cls,detector);                             % test detector
 %[recall,prec,ap]=VOCevaldet(VOCopts,'comp3',cls,true);  % compute and display PR #which means precision recall
 drawnow;
@@ -36,8 +36,8 @@ ids=textread(sprintf(VOCopts.imgsetpath,'train'),'%s');
 
 %TOTAL_IMAGES=length(ids);
 %TOTAL_IMAGES=2500;
-TOTAL_IMAGES=10;
-TRAIN_IMAGES=10;
+TOTAL_IMAGES=2500;
+TRAIN_IMAGES=50;
 
 % extract features and bounding boxes
 detector.FD=[];
@@ -95,7 +95,7 @@ while TRAIN_IMAGES>length(detector.gt),
         
         %detector.FD = [detector.FD;extractExample(VOCopts, a{1},fd )]; 
 
-        examples = extractExample(VOCopts, a{1},fd, I);
+        examples = extractExample(VOCopts, a{1},fd);
         
         for image=1:size(examples,1),
             key= num2str(examples(image,:));
