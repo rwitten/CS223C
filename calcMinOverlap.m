@@ -1,4 +1,4 @@
-function minOverlap = calcMinOverlap(bbox, curbox)
+function minOverlapPercent = calcMinOverlap(bbox, curbox)
     bbx1 = bbox(1);
     bby1 = bbox(2);
     bbx2 = bbox(3);
@@ -14,5 +14,5 @@ function minOverlap = calcMinOverlap(bbox, curbox)
     curSize = abs((curx2 - curx1)*(cury2 - cury1));
     bbSize = abs((bbx2 - bbx1) * (bby2 - bby1));
     
-    minOverlap = overlapSize/max(bbSize, curSize);
+    minOverlapPercent = overlapSize/(bbSize + curSize - overlapSize);
 end

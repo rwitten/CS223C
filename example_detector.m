@@ -11,10 +11,10 @@ VOCopts.cellsize =  8;
 VOCopts.numgradientdirections = 9;
 VOCopts.firstdim = 10;
 VOCopts.seconddim=6;
-VOCopts.rootfilterminingiters=10;
+VOCopts.rootfilterminingiters=3;
 VOCopts.rootfilterupdateiters=1;
 VOCopts.pyramidscale = 1/1.1;
-VOCopts.hognormclip = 1;
+VOCopts.hognormclip = 0.3;
 %VOCopts.firstdim = 32; %empirical average!
 %VOCopts.seconddim=22;  %empirical average!
 
@@ -37,11 +37,7 @@ ids=textread(sprintf(VOCopts.imgsetpath,'train'),'%s');
 TOTAL_IMAGES=length(ids);
 %TOTAL_IMAGES=2500;
 %TOTAL_IMAGES=100;
-<<<<<<< HEAD
-TRAIN_IMAGES=5000;
-=======
 TRAIN_IMAGES=150;
->>>>>>> 8bf9d0c25941eecb4ee1427d0de2e7ec4105d041
 
 % extract features and bounding boxes
 detector.FD=[];
@@ -215,14 +211,14 @@ for i=1:VOCopts.rootfilterminingiters, %this is finding "Root Filter Initializat
     newexamples = newexamples(perm, :);
     newimagenumbers = newimagenumbers(perm);
     
-    [newdetector, savedfeatures, savedgt, savedimagelabel] = extractHardExamples(newexamples, newgt,newimagenumbers);
+    [newdetector, savedfeatures, savedgt, savedimagelabel] = extractHardExamples(newexamples, newgt, newimagenumbers);
+
+    %if  i1:VOCopts.rootfilterupdateiters,%this step is "Root Filter Update"
+        [savedfeatures] = findNewPositives(VOCopts, cls, savedgt, savedfeatures, savedimagelabel, newdetector);
+    %end
 end
 
-for i=1:VOCopts.rootfilterupdateiters,%this step is "Root Filter Update"
-    [newexamples] = findNewPositives(VOCopts, cls, newgt, newexamples, newimagenumbers,newdetector);
-end
-
-[detector]=finaltrainandtest(VOCopts, cls, newgt, newexamples,labels);
+[detector]=finaltrainandtest(VOCopts, cls, savedgt, savedfeatures, labels);
 
 
 function [detector] = finaltrainandtest(VOCopts, cls, newgt, newexamples,labels)
