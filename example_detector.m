@@ -11,8 +11,8 @@ VOCopts.cellsize =  8;
 VOCopts.numgradientdirections = 9;
 VOCopts.firstdim = 10;
 VOCopts.seconddim=6;
-VOCopts.rootfilterminingiters=3;
-VOCopts.rootfilterupdateiters=3;
+VOCopts.rootfilterminingiters=10;
+VOCopts.rootfilterupdateiters=1;
 VOCopts.pyramidscale = 1/1.1;
 VOCopts.hognormclip = 1;
 %VOCopts.firstdim = 32; %empirical average!
@@ -37,7 +37,11 @@ ids=textread(sprintf(VOCopts.imgsetpath,'train'),'%s');
 TOTAL_IMAGES=length(ids);
 %TOTAL_IMAGES=2500;
 %TOTAL_IMAGES=100;
+<<<<<<< HEAD
+TRAIN_IMAGES=5000;
+=======
 TRAIN_IMAGES=150;
+>>>>>>> 8bf9d0c25941eecb4ee1427d0de2e7ec4105d041
 
 % extract features and bounding boxes
 detector.FD=[];

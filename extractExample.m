@@ -23,7 +23,7 @@ else
     pyramidIndices = [];
     
     for i= 1:size(boundingbox,2),
-        currbox = boundingbox(:,i);
+        currbox = boundingbox(:,i) + floor((rand(4,1)-.5)*16);
 
         x1 = currbox(1);
         y1 = currbox(2);
