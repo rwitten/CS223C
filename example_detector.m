@@ -11,17 +11,22 @@ VOCopts.cellsize =  8;
 VOCopts.numgradientdirections = 9;
 VOCopts.firstdim = 10;
 VOCopts.seconddim=6;
-VOCopts.rootfilterminingiters=10;
+VOCopts.rootfilterminingiters=1;
 VOCopts.rootfilterupdateiters=1;
 VOCopts.pyramidscale = 1/1.15;
 VOCopts.hognormclip = 0.2;
+VOCopts.TRAIN_IMAGES=50; %this is the size of cache in terms of number of images
 %VOCopts.firstdim = 32; %empirical average!
 %VOCopts.seconddim=22;  %empirical average!
 
 % train and test detector for each class
 cls='person';
 detector=train(VOCopts,cls);                            % train detector
-%test(VOCopts,cls,detector);                             % test detector
+fprintf('\n\n\n\n')
+fprintf('*************************************\n')
+fprintf('         Entering Testing            \n')
+fprintf('*************************************\n')
+test(VOCopts,cls,detector);                             % test detector
 %[recall,prec,ap]=VOCevaldet(VOCopts,'comp3',cls,true);  % compute and display PR #which means precision recall
 drawnow;
 
@@ -37,7 +42,7 @@ ids=textread(sprintf(VOCopts.imgsetpath,'train'),'%s');
 TOTAL_IMAGES=length(ids);
 %TOTAL_IMAGES=2500;
 %TOTAL_IMAGES=100;
-TRAIN_IMAGES=5000;
+TRAIN_IMAGES=VOCopts.TRAIN_IMAGES;
 
 % extract features and bounding boxes
 detector.FD=[];
@@ -213,8 +218,13 @@ for i=1:VOCopts.rootfilterminingiters, %this is finding "Root Filter Initializat
     [newdetector, savedfeatures, savedgt, savedimagelabel] = extractHardExamples(newexamples, newgt,newimagenumbers);
 end
 
+detector=newdetector;
+
 for i=1:VOCopts.rootfilterupdateiters,%this step is "Root Filter Update"
-    [newexamples] = findNewPositives(VOCopts, cls, newgt, newexamples, newimagenumbers,newdetector);
+    [newexamples] = findNewPositives(VOCopts, cls, newgt, newexamples, newimagenumbers,detector);
+    size(newexamples)
+    binaryizegt = 2*((newgt>0)-.5);
+    detector = liblineartrain(binaryizegt', sparse(newexamples), '-s 2 -B 1 -q');
 end
 
 [detector]=finaltrainandtest(VOCopts, cls, newgt, newexamples,labels);
@@ -265,6 +275,7 @@ binaryizegt = 2*((newtestgt>0)-.5);
 
 % run detector on test images
 function out = test(VOCopts,cls,detector) 
+%TEST_IMAGES=length(ids);
 TEST_IMAGES=100;
 
 % load test set ('val' for development kit)
@@ -279,7 +290,7 @@ tic;
 for i=1:TEST_IMAGES,
     % display progress
     if toc>1
-        fprintf('%s: test: %d/%d\n',cls,i,length(ids));
+        fprintf('%s: test: %d/%d\n',cls,i,TEST_IMAGES);
         drawnow;
         tic;
     end
@@ -296,7 +307,8 @@ for i=1:TEST_IMAGES,
     end
 
     % compute confidence of positive classification and bounding boxes
-    [c,BB]=detect(VOCopts,detector,fd);
+    I = imread(sprintf(VOCopts.imgpath,ids{i}));
+    [c,BB]= detect(VOCopts,detector,fd,I,i);
 
     % write to results file
     for j=1:length(c)
@@ -310,7 +322,7 @@ fclose(fid);
 
 % trivial detector: confidence is computed as in example_classifier, and
 % bounding boxes of nearest positive training image are output
-function [c,BB] = detect(VOCopts,detector,fd)
+function [c,BB] = detect(VOCopts,detector,fd,I,number)
 
 xdim = size(fd,1);
 ydim = size(fd,2);
@@ -318,23 +330,41 @@ ydim = size(fd,2);
 c = [];
 BB = [];
 
-for x = 1+VOCopts.firstdim/2 :xdim - VOCopts.firstdim/2,
-    for y = 1+VOCopts.seconddim/2:ydim - VOCopts.seconddim/2,
-        [pixelBox, pixelCenter]=HOGSpaceToPixelSpace(VOCopts, [x;y]);
-        [HOGCenter, HOGVector] = pixelSpaceToHOGSpace(VOCopts, fd, pixelCenter);
-        score = detector.multiplier*HOGVector*detector.w';
-        if score>1,
-            c = [c score];
-            newboundingbox = [pixelBox(3); pixelBox(1);pixelBox(4); pixelBox(2)];
-            BB = [BB newboundingbox];
-            %disp 'gotta match'
+for pyramidIndex=1:length(fd)
+    currlevel = fd{pyramidIndex};
+    xdim = size(currlevel,1);
+    ydim = size(currlevel,2);
+    for x = 1+VOCopts.firstdim/2 :xdim - VOCopts.firstdim/2,
+        for y = 1+VOCopts.seconddim/2:ydim - VOCopts.seconddim/2,
+            [pixelBox, pixelCenter]=HOGSpaceToPixelSpace(VOCopts, [x;y],pyramidIndex);
+            [HOGCenter, HOGVector] = pixelSpaceToHOGSpace(VOCopts, fd, pixelCenter,pyramidIndex);
+            score = detector.multiplier*[HOGVector,1]*detector.w';
+            if score>1,
+                c = [c score];
+                newboundingbox = [pixelBox(3); pixelBox(1);pixelBox(4); pixelBox(2)];
+                BB = [BB newboundingbox];
+                %disp 'gotta match'
+            end
+
         end
-        
     end
 end
 
-fprintf('number of matches found %d out of %d\n', length(c), (xdim-VOCopts.firstdim)...
-    *(ydim-VOCopts.seconddim));
+for k = 1:size(BB,2)
+    pixelBox=BB(:,k);
+    for x=1:size(I,1),
+        for y=1:size(I,2),
+            if x > pixelBox(1) && x < pixelBox(3) && y>pixelBox(2) && y<pixelBox(4)
+                I(x,y,1) = 1e4;
+            end
+        end
+    end
+end
+
+imwrite(I, sprintf('image%d.png', number), 'png');
+
+
+fprintf('number of matches found %d\n', length(c));
 
 
 % iterate through and fire if we're bigger than some cutoff.

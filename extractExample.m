@@ -8,7 +8,7 @@ ydim = size(features,2)*VOCopts.cellsize;
 if size(boundingbox,1)<1,
     centers = [];
     pyramidIndices = [];
-    for i=1:5
+    for i=1:10
       newPyramidIndex = floor(rand()*length(features) + 1);
       scale = VOCopts.pyramidscale ^ (newPyramidIndex-1);
       centers = [centers [floor(rand()*scale*xdim); floor(rand()*scale*ydim)]];
