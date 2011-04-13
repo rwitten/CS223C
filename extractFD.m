@@ -1,6 +1,6 @@
 function fd = extractfd(VOCopts,I)
-minfirstdim = (VOCopts.firstdim+2) * VOCopts.cellsize;
-minseconddim = (VOCopts.seconddim+2) * VOCopts.cellsize;
+minfirstdim = (VOCopts.firstdim+2*(VOCopts.blocksize-1)) * VOCopts.cellsize;
+minseconddim = (VOCopts.seconddim+2*(VOCopts.blocksize-1)) * VOCopts.cellsize;
 curScale = 1;
 curI = I;
 fd = {};

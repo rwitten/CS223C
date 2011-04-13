@@ -13,9 +13,9 @@ VOCopts.firstdim = 10;
 VOCopts.seconddim=6;
 VOCopts.rootfilterminingiters=1;
 VOCopts.rootfilterupdateiters=1;
-VOCopts.pyramidscale = 1/1.15;
-VOCopts.hognormclip = 0.2;
 VOCopts.TRAIN_IMAGES=50; %this is the size of cache in terms of number of images
+VOCopts.pyramidscale = 1/1.1;
+VOCopts.hognormclip = 1;
 %VOCopts.firstdim = 32; %empirical average!
 %VOCopts.seconddim=22;  %empirical average!
 
@@ -27,6 +27,8 @@ fprintf('*************************************\n')
 fprintf('         Entering Testing            \n')
 fprintf('*************************************\n')
 test(VOCopts,cls,detector);                             % test detector
+ detector=train(VOCopts,cls);                            % train detector
+%test(VOCopts,cls,detector);                             % test detector
 %[recall,prec,ap]=VOCevaldet(VOCopts,'comp3',cls,true);  % compute and display PR #which means precision recall
 drawnow;
 
@@ -52,13 +54,13 @@ detector.imagenumberlabels = [];
 tic;
 examples = [];
 
-detector.FD = NaN * ones(TRAIN_IMAGES*10,4*VOCopts.numgradientdirections*VOCopts.firstdim* ...
+detector.FD = NaN * ones(TRAIN_IMAGES,4*VOCopts.numgradientdirections*VOCopts.firstdim* ...
     VOCopts.seconddim);
 
 if length(originalgt)>0,
     detector.imagenumberlabels=originalimagenumbers;
     detector.gt = originalgt;
-    detector.FD(1:length(detector.gt), :) = originalexamples;
+    detector.FD(1:min(TRAIN_IMAGES,length(detector.gt)), :) = originalexamples;
 end
 
 while TRAIN_IMAGES>length(detector.gt),
@@ -101,25 +103,26 @@ while TRAIN_IMAGES>length(detector.gt),
         %detector.FD = [detector.FD;extractExample(VOCopts, a{1},fd )]; 
 
         examples = extractExample(VOCopts, a{1},fd);
-        
-        for image=1:size(examples,1),
-            key= num2str(examples(image,:));
-            val = num2str(gt);
-            labels(key)=val;
+        if (size(examples,1) > 0)
+            for image=1:size(examples,1),
+                key= num2str(examples(image,:));
+                val = num2str(gt);
+                labels(key)=val;
+            end
+
+            detector.FD(length(detector.gt)+1:length(detector.gt)+size(examples,1),:) ...
+                = examples;
+                                                       %one example for each bounding box, 
+                                                       %should be a vector of size 
+                                                       %w*h * 4*9
+            if gt==-1,
+              labelvalues = gt*ones(1,size(examples,1));
+            else
+              labelvalues = 1:size(examples);
+            end
+            detector.imagenumberlabels = [detector.imagenumberlabels, i*ones(1,size(examples,1))]; 
+            detector.gt = [detector.gt, labelvalues]; 
         end
-        
-        detector.FD(length(detector.gt)+1:length(detector.gt)+size(examples,1),:) ...
-            = examples;
-                                                   %one example for each bounding box, 
-                                                   %should be a vector of size 
-                                                   %w*h * 4*9
-        if gt==-1,
-          labelvalues = gt*ones(1,size(examples,1));
-        else
-          labelvalues = 1:size(examples);
-        end
-        detector.imagenumberlabels = [detector.imagenumberlabels, i*ones(1,size(examples,1))]; 
-        detector.gt = [detector.gt, labelvalues]; 
         
     end
 end
@@ -146,7 +149,7 @@ svmStruct = liblineartrain(binaryizegt',sparse(newexamples),'-s 2 -B 1 -q');
 
 
 disp 'How we do overall'
-naiveperformance = abs(sum(newgt)/length(newgt))/2 + .5 %baseline
+naiveperformance = abs(sum(binaryizegt)/length(binaryizegt))/2 + .5 %baseline
 binaryizegt = 2*((newgt>0)-.5);
 [predicted_label, accuracy] ...
    = liblinearpredict(binaryizegt',sparse(newexamples),svmStruct);
@@ -241,13 +244,14 @@ disp 'detector trained'
 
 
 disp 'testing detector'
-naiveperformance = abs(sum(newtestgt)/length(newtestgt))/2 + .5 %baseline
+naiveperformance = abs((sum(newtestgt>0) - sum(newtestgt<0))/length(newtestgt))/2 + .5 %baseline
 
 scores = [newtestexamples,ones(size(newtestexamples,1),1)] * detector.w';
 
 binaryizegt = 2*((newtestgt>0)-.5);
 [predicted_label_test, accuracy] ...
        = liblinearpredict(binaryizegt',sparse(newtestexamples),detector);
+   
    
  if sum(abs(2*((scores > 0 )-.5) - predicted_label_test)) < 1,
      detector.multiplier = 1;
@@ -324,12 +328,10 @@ fclose(fid);
 % bounding boxes of nearest positive training image are output
 function [c,BB] = detect(VOCopts,detector,fd,I,number)
 
-xdim = size(fd,1);
-ydim = size(fd,2);
-
 c = [];
 BB = [];
 
+<<<<<<< HEAD
 for pyramidIndex=1:length(fd)
     currlevel = fd{pyramidIndex};
     xdim = size(currlevel,1);
@@ -339,6 +341,16 @@ for pyramidIndex=1:length(fd)
             [pixelBox, pixelCenter]=HOGSpaceToPixelSpace(VOCopts, [x;y],pyramidIndex);
             [HOGCenter, HOGVector] = pixelSpaceToHOGSpace(VOCopts, fd, pixelCenter,pyramidIndex);
             score = detector.multiplier*[HOGVector,1]*detector.w';
+=======
+for i=1:length(fd)
+    xdim = size(fd{i},1);
+    ydim = size(fd{i},2);
+    for x = 1+VOCopts.firstdim/2 :xdim - VOCopts.firstdim/2,
+        for y = 1+VOCopts.seconddim/2:ydim - VOCopts.seconddim/2,
+            [pixelBox, pixelCenter]=HOGSpaceToPixelSpace(VOCopts, [x;y], i);
+            [HOGCenter, HOGVector] = pixelSpaceToHOGSpace(VOCopts, fd{i}, pixelCenter);
+            score = detector.multiplier*HOGVector*detector.w';
+>>>>>>> 0c6f84d353ed8ed2ccda5781fde8a62b08062bb0
             if score>1,
                 c = [c score];
                 newboundingbox = [pixelBox(3); pixelBox(1);pixelBox(4); pixelBox(2)];
