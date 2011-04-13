@@ -1,6 +1,6 @@
 function bestFeature = findBestFeature(VOCopts, fd, newdetector, bbox)%, I)
 bestBBox = [];
-bestFeature = zeros(VOCopts.firstdim* VOCopts.seconddim* VOCopts.blocksize^2 * VOCopts.numgradientdirections, 1);
+bestFeature = [];%zeros(VOCopts.firstdim* VOCopts.seconddim* VOCopts.blocksize^2 * VOCopts.numgradientdirections, 1);
 maxScore = 0;
 
 curHeight = VOCopts.firstdim * VOCopts.cellsize;

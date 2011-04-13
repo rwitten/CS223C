@@ -355,6 +355,7 @@ for pyramidIndex=1:length(fd)
         end
     end
 end
+size(BB)
 [c,BB] = nonMaximalSupression(c,BB);
 
 
