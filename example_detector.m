@@ -15,7 +15,7 @@ VOCopts.rootfilterminingiters=1;
 VOCopts.rootfilterupdateiters=1;
 VOCopts.TRAIN_IMAGES=50; %this is the size of cache in terms of number of images
 VOCopts.pyramidscale = 1/1.1;
-VOCopts.hognormclip = 0.2;
+VOCopts.hognormclip = 0.35;
 %VOCopts.firstdim = 32; %empirical average!
 %VOCopts.seconddim=22; %empirical average!
 
@@ -278,7 +278,7 @@ binaryizegt = 2*((newtestgt>0)-.5);
 %TEST_IMAGES=length(ids);
 function out = test(VOCopts,cls,detector)
 TEST_IMAGES=100;
-TEST_IMAGES=length(ids);
+%TEST_IMAGES=length(ids);
 
 % load test set ('val' for development kit)
 [ids,gt]=textread(sprintf(VOCopts.imgsetpath,VOCopts.testset),'%s %d');
