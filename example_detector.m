@@ -12,10 +12,11 @@ VOCopts.numgradientdirections = 9;
 VOCopts.firstdim = 10;
 VOCopts.seconddim=6;
 VOCopts.rootfilterminingiters=1;
-VOCopts.rootfilterupdateiters=1;
-VOCopts.TRAIN_IMAGES=50; %this is the size of cache in terms of number of images
+VOCopts.rootfilterupdateiters=0;
+VOCopts.TRAIN_IMAGES=5000; %this is the size of cache in terms of number of images
 VOCopts.pyramidscale = 1/1.1;
 VOCopts.hognormclip = 0.35;
+VOCopts.rootsamples = 5;
 %VOCopts.firstdim = 32; %empirical average!
 %VOCopts.seconddim=22; %empirical average!
 
@@ -26,7 +27,7 @@ fprintf('\n\n\n\n')
 fprintf('*************************************\n')
 fprintf('         Entering Testing            \n')
 fprintf('*************************************\n')
-test(VOCopts,cls,detector);                             % test detector
+%test(VOCopts,cls,detector);                             % test detector
 %[recall,prec,ap]=VOCevaldet(VOCopts,'comp3',cls,true);  % compute and display PR #which means precision recall
 drawnow;
 
@@ -140,7 +141,8 @@ end
 
 function [newdetector,hardexamples, hardgt, hardimagelabel]=extractHardExamples(newexamples,newgt,newimagelabels)
 binaryizegt = 2*((newgt>0)-.5);
-svmStruct = liblineartrain(binaryizegt',sparse(newexamples),'-s 2 -B 1 -q');
+
+svmStruct = detectorTrain(binaryizegt,newexamples);
 
 %[predicted_label, accuracy, decision_values] ...
 % = svmpredict(traingt',trainfd,svmStruct);
@@ -152,18 +154,16 @@ binaryizegt = 2*((newgt>0)-.5);
 [predicted_label, accuracy] ...
    = liblinearpredict(binaryizegt',sparse(newexamples),svmStruct);
 
+svmStruct.multiplier
+scores = svmStruct.multiplier*[newexamples,ones(size(newexamples,1),1)] * svmStruct.w';
 
-scores = [newexamples,ones(size(newexamples,1),1)] * svmStruct.w';
-
-empiricalerrors= sum(2*((scores > 0 )-.5) == predicted_label);
+empiricalerrors= sum(abs(2*((scores > 0 )-.5) - predicted_label))/2;
                                                     % this should be 0
-svmStruct.multiplier = -1;
-if empiricalerrors>0,
-    fprintf('number of errors %d vs. number of examples %d', ...
+                                                    
+fprintf('number of errors %d vs. number of examples %d', ...
         empiricalerrors,length(scores));
-    svmStruct.multiplier = 1;
-end
-howbadwedid = svmStruct.multiplier .*scores.*newgt';
+
+howbadwedid = scores.*newgt';
 
 badnesscutoff = median(howbadwedid)
 
@@ -180,6 +180,7 @@ for i=1:length(howbadwedid),
         savedfeatures(length(savedgt),:) = newexamples(i,:)';
     end
 end
+
 newdetector=svmStruct;
 hardexamples=savedfeatures(1:length(savedgt),:);
 hardgt = savedgt;
@@ -221,11 +222,13 @@ end
 
 detector=newdetector;
 
+disp 'training latently'
 for i=1:VOCopts.rootfilterupdateiters,%this step is "Root Filter Update"
+    fprintf('Training latently iteration %d\n', i);
+    tic;
     [newexamples] = findNewPositives(VOCopts, cls, newgt, newexamples, newimagenumbers,detector);
-    size(newexamples)
-    binaryizegt = 2*((newgt>0)-.5);
-    detector = liblineartrain(binaryizegt', sparse(newexamples), '-s 2 -B 1 -q');
+    toc
+    detector = detectorTrain(newgt, newexamples);
 end
 
 [detector]=finaltrainandtest(VOCopts, cls, newgt, newexamples,labels);
@@ -235,9 +238,10 @@ function [detector] = finaltrainandtest(VOCopts, cls, newgt, newexamples,labels)
 
 disp 'final showdown'
 binaryizegt = 2*((newgt>0)-.5);
-detector = liblineartrain(binaryizegt',sparse(newexamples), '-s 2 -B 1 -q');
+detector = detectorTrain(newgt,newexamples);
                       %we need to train a final detector on hard examples
 disp 'detector trained'
+
 [newtestexamples, newtestgt] = fillexamples(VOCopts, cls, [], [], [],labels);
 
 
@@ -250,12 +254,6 @@ binaryizegt = 2*((newtestgt>0)-.5);
 [predicted_label_test, accuracy] ...
        = liblinearpredict(binaryizegt',sparse(newtestexamples),detector);
    
- if sum(abs(2*((scores > 0 )-.5) - predicted_label_test)) < 1,
-     detector.multiplier = 1;
- else
-     detector.multiplier = -1;
- end
- 
  incorrectpredictions=sum(abs(2*((detector.multiplier*scores > 0 )-.5) ...
      - predicted_label_test));
  fprintf('this really should be zero %d\n', incorrectpredictions);
