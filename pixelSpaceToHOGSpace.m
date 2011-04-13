@@ -1,17 +1,12 @@
 function [HOGCenter, HOGVector] = pixelSpaceToHOGSpace(VOCopts, features, pixelcenter, pyramidIndex)
-HOGCenter = ceil(pixelcenter/8)-1;
+HOGCenter = ceil(pixelcenter/VOCopts.cellsize)-(VOCopts.blocksize-1);
+HOGCenter = round(HOGCenter * (VOCopts.pyramidscale^(pyramidIndex-1)));
 
 firstlower = ceil(HOGCenter(1)-VOCopts.firstdim/2);
 firstupper = ceil(HOGCenter(1)+VOCopts.firstdim/2-1);
 secondlower = ceil(HOGCenter(2)-VOCopts.seconddim/2);
 secondupper = ceil(HOGCenter(2)+VOCopts.seconddim/2-1);
 featuresAtPyramidLevel = features{pyramidIndex};
-
-if size(featuresAtPyramidLevel,1) < VOCopts.firstdim || size(featuresAtPyramidLevel,2) < VOCopts.seconddim,
-    HOGCenter = [];
-    HOGVector = [];
-    return;
-end
 
 if firstlower < 1,
     firstlower = 1;
