@@ -7,7 +7,7 @@ addpath([cd '/VOCcode']);
 VOCinit;
 
 VOCopts.blocksize=2;
-VOCopts.cellsize =  8;
+VOCopts.cellsize = 8;
 VOCopts.numgradientdirections = 9;
 VOCopts.firstdim = 10;
 VOCopts.seconddim=6;
@@ -15,9 +15,9 @@ VOCopts.rootfilterminingiters=1;
 VOCopts.rootfilterupdateiters=1;
 VOCopts.TRAIN_IMAGES=50; %this is the size of cache in terms of number of images
 VOCopts.pyramidscale = 1/1.1;
-VOCopts.hognormclip = 1;
+VOCopts.hognormclip = 0.2;
 %VOCopts.firstdim = 32; %empirical average!
-%VOCopts.seconddim=22;  %empirical average!
+%VOCopts.seconddim=22; %empirical average!
 
 % train and test detector for each class
 cls='person';
@@ -48,17 +48,17 @@ TRAIN_IMAGES=VOCopts.TRAIN_IMAGES;
 detector.FD=[];
 detector.bbox={};
 detector.gt=[];
-detector.imagenumberlabels = []; 
+detector.imagenumberlabels = [];
 tic;
 examples = [];
 
-detector.FD = NaN * ones(TRAIN_IMAGES,4*VOCopts.numgradientdirections*VOCopts.firstdim* ...
+detector.FD = NaN * ones(TRAIN_IMAGES*10,4*VOCopts.numgradientdirections*VOCopts.firstdim* ...
     VOCopts.seconddim);
 
 if length(originalgt)>0,
     detector.imagenumberlabels=originalimagenumbers;
     detector.gt = originalgt;
-    detector.FD(1:min(TRAIN_IMAGES,length(detector.gt)), :) = originalexamples;
+    detector.FD(1:length(detector.gt), :) = originalexamples;
 end
 
 while TRAIN_IMAGES>length(detector.gt),
@@ -79,11 +79,11 @@ while TRAIN_IMAGES>length(detector.gt),
     
     % assign ground truth class to image
     if isempty(clsinds)
-        gt=-1;          % no objects of class
+        gt=-1; % no objects of class
     elseif any(~diff)
-        gt=1;           % at least one non-difficult object of class
+        gt=1; % at least one non-difficult object of class
     else
-        gt=0;           % only difficult objects
+        gt=0; % only difficult objects
     end
     if gt
         % extract features for image
@@ -98,9 +98,9 @@ while TRAIN_IMAGES>length(detector.gt),
         detector.bbox{end+1}=cat(1,rec.objects(clsinds(~diff)).bbox)';
         a= detector.bbox(end);
         
-        %detector.FD = [detector.FD;extractExample(VOCopts, a{1},fd )]; 
+        %detector.FD = [detector.FD;extractExample(VOCopts, a{1},fd )];
 
-        examples = extractExample(VOCopts, a{1},fd);
+        [examples bbIndices] = extractExample(VOCopts, a{1},fd);
         if (size(examples,1) > 0)
             for image=1:size(examples,1),
                 key= num2str(examples(image,:));
@@ -110,16 +110,16 @@ while TRAIN_IMAGES>length(detector.gt),
 
             detector.FD(length(detector.gt)+1:length(detector.gt)+size(examples,1),:) ...
                 = examples;
-                                                       %one example for each bounding box, 
-                                                       %should be a vector of size 
+                                                       %one example for each bounding box,
+                                                       %should be a vector of size
                                                        %w*h * 4*9
             if gt==-1,
               labelvalues = gt*ones(1,size(examples,1));
             else
-              labelvalues = 1:size(examples);
+              labelvalues = bbIndices;
             end
-            detector.imagenumberlabels = [detector.imagenumberlabels, i*ones(1,size(examples,1))]; 
-            detector.gt = [detector.gt, labelvalues]; 
+            detector.imagenumberlabels = [detector.imagenumberlabels, i*ones(1,size(examples,1))];
+            detector.gt = [detector.gt, labelvalues];
         end
         
     end
@@ -143,7 +143,7 @@ binaryizegt = 2*((newgt>0)-.5);
 svmStruct = liblineartrain(binaryizegt',sparse(newexamples),'-s 2 -B 1 -q');
 
 %[predicted_label, accuracy, decision_values] ...
-%   = svmpredict(traingt',trainfd,svmStruct);
+% = svmpredict(traingt',trainfd,svmStruct);
 
 
 disp 'How we do overall'
@@ -192,7 +192,7 @@ fprintf('number of saved examples: %d\n',size(savedfeatures,1));
 
 %disp 'how bad we did on the worst'
 %[predicted_label, accuracy] ...
-%   = liblinearpredict(savedgt',sparse(savedfeatures),svmStruct);
+% = liblinearpredict(savedgt',sparse(savedfeatures),svmStruct);
 
 
 function [detector] = train(VOCopts,cls)
@@ -237,7 +237,7 @@ disp 'final showdown'
 binaryizegt = 2*((newgt>0)-.5);
 detector = liblineartrain(binaryizegt',sparse(newexamples), '-s 2 -B 1 -q');
                       %we need to train a final detector on hard examples
-disp 'detector trained'                   
+disp 'detector trained'
 [newtestexamples, newtestgt] = fillexamples(VOCopts, cls, [], [], [],labels);
 
 
@@ -249,7 +249,6 @@ scores = [newtestexamples,ones(size(newtestexamples,1),1)] * detector.w';
 binaryizegt = 2*((newtestgt>0)-.5);
 [predicted_label_test, accuracy] ...
        = liblinearpredict(binaryizegt',sparse(newtestexamples),detector);
-   
    
  if sum(abs(2*((scores > 0 )-.5) - predicted_label_test)) < 1,
      detector.multiplier = 1;
@@ -268,17 +267,18 @@ binaryizegt = 2*((newtestgt>0)-.5);
 
 %correct = 0;
 %for i = 1:size(detector.gt,2),
-%    label = svmpredict(detector.gt(i),detector.FD(i,:),svmStruct);
-%    %label = svmpredict(svmStruct, detector.FD(i,:));
-%    if abs(label - detector.gt(i))<1e-3,
-%        correct = correct +1;
-%    end
+% label = svmpredict(detector.gt(i),detector.FD(i,:),svmStruct);
+% %label = svmpredict(svmStruct, detector.FD(i,:));
+% if abs(label - detector.gt(i))<1e-3,
+% correct = correct +1;
+% end
 %end
 
 % run detector on test images
-function out = test(VOCopts,cls,detector) 
 %TEST_IMAGES=length(ids);
+function out = test(VOCopts,cls,detector)
 TEST_IMAGES=100;
+TEST_IMAGES=length(ids);
 
 % load test set ('val' for development kit)
 [ids,gt]=textread(sprintf(VOCopts.imgsetpath,VOCopts.testset),'%s %d');
@@ -344,7 +344,6 @@ for pyramidIndex=1:length(fd)
                 BB = [BB newboundingbox];
                 %disp 'gotta match'
             end
-
         end
     end
 end
