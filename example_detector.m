@@ -95,7 +95,7 @@ while TRAIN_IMAGES>length(detector.gt),
         
         %detector.FD = [detector.FD;extractExample(VOCopts, a{1},fd )];
 
-        examples = extractExample(VOCopts, a{1},fd);
+        [examples bbIndices] = extractExample(VOCopts, a{1},fd);
         if (size(examples,1) > 0)
             for image=1:size(examples,1),
                 key= num2str(examples(image,:));
@@ -111,7 +111,7 @@ while TRAIN_IMAGES>length(detector.gt),
             if gt==-1,
               labelvalues = gt*ones(1,size(examples,1));
             else
-              labelvalues = 1:size(examples);
+              labelvalues = bbIndices;
             end
             detector.imagenumberlabels = [detector.imagenumberlabels, i*ones(1,size(examples,1))];
             detector.gt = [detector.gt, labelvalues];

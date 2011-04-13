@@ -1,5 +1,5 @@
 
-function [ HOGVectors ] = extractExample( VOCopts, boundingbox,features )
+function [ HOGVectors bbIndices] = extractExample( VOCopts, boundingbox,features )
 %EXTRACTEXAMPLE Summary of this function goes here
 %   Extract either a positive or a negative example from the image
 
@@ -9,6 +9,7 @@ ydim = (size(features{1},2))*VOCopts.cellsize;
 if size(boundingbox,1)<1,
     centers = [];
     pyramidIndices = [];
+    bbIndices = [];
     for i=1:ceil(3*rand)
       newPyramidIndex = floor(rand()*length(features) + 1);
       scale = VOCopts.pyramidscale ^ (newPyramidIndex-1);
@@ -21,6 +22,7 @@ if size(boundingbox,1)<1,
 else
     centers = [];
     pyramidIndices = [];
+    bbIndices = [];
     
     for i= 1:size(boundingbox,2),
         currbox = boundingbox(:,i) + floor((rand(4,1)-.5)*16);
@@ -46,6 +48,7 @@ else
         %newcenter = newcenter + offset;
         centers = [centers newcenter];
         pyramidIndices = [pyramidIndices scaleIndex];
+        bbIndices = [bbIndices i];
         %figure();
         %drawBoundingBox(VOCopts, I, currbox, scaleIndex);
         
