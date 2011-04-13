@@ -27,8 +27,6 @@ fprintf('*************************************\n')
 fprintf('         Entering Testing            \n')
 fprintf('*************************************\n')
 test(VOCopts,cls,detector);                             % test detector
- detector=train(VOCopts,cls);                            % train detector
-%test(VOCopts,cls,detector);                             % test detector
 %[recall,prec,ap]=VOCevaldet(VOCopts,'comp3',cls,true);  % compute and display PR #which means precision recall
 drawnow;
 
@@ -244,7 +242,7 @@ disp 'detector trained'
 
 
 disp 'testing detector'
-naiveperformance = abs((sum(newtestgt>0) - sum(newtestgt<0))/length(newtestgt))/2 + .5 %baseline
+naiveperformance = abs((sum(binaryizegt>0) - sum(binaryizegt<0))/length(binaryizegt))/2 + .5 %baseline
 
 scores = [newtestexamples,ones(size(newtestexamples,1),1)] * detector.w';
 
@@ -331,7 +329,6 @@ function [c,BB] = detect(VOCopts,detector,fd,I,number)
 c = [];
 BB = [];
 
-<<<<<<< HEAD
 for pyramidIndex=1:length(fd)
     currlevel = fd{pyramidIndex};
     xdim = size(currlevel,1);
@@ -341,16 +338,6 @@ for pyramidIndex=1:length(fd)
             [pixelBox, pixelCenter]=HOGSpaceToPixelSpace(VOCopts, [x;y],pyramidIndex);
             [HOGCenter, HOGVector] = pixelSpaceToHOGSpace(VOCopts, fd, pixelCenter,pyramidIndex);
             score = detector.multiplier*[HOGVector,1]*detector.w';
-=======
-for i=1:length(fd)
-    xdim = size(fd{i},1);
-    ydim = size(fd{i},2);
-    for x = 1+VOCopts.firstdim/2 :xdim - VOCopts.firstdim/2,
-        for y = 1+VOCopts.seconddim/2:ydim - VOCopts.seconddim/2,
-            [pixelBox, pixelCenter]=HOGSpaceToPixelSpace(VOCopts, [x;y], i);
-            [HOGCenter, HOGVector] = pixelSpaceToHOGSpace(VOCopts, fd{i}, pixelCenter);
-            score = detector.multiplier*HOGVector*detector.w';
->>>>>>> 0c6f84d353ed8ed2ccda5781fde8a62b08062bb0
             if score>1,
                 c = [c score];
                 newboundingbox = [pixelBox(3); pixelBox(1);pixelBox(4); pixelBox(2)];
@@ -361,12 +348,14 @@ for i=1:length(fd)
         end
     end
 end
+[c,BB] = nonMaximalSupression(c,BB);
+
 
 for k = 1:size(BB,2)
     pixelBox=BB(:,k);
     for x=1:size(I,1),
         for y=1:size(I,2),
-            if x > pixelBox(1) && x < pixelBox(3) && y>pixelBox(2) && y<pixelBox(4)
+            if x > pixelBox(2) && x < pixelBox(4) && y>pixelBox(1) && y<pixelBox(3)
                 I(x,y,1) = 1e4;
             end
         end
@@ -377,6 +366,29 @@ imwrite(I, sprintf('image%d.png', number), 'png');
 
 
 fprintf('number of matches found %d\n', length(c));
+
+function [newc, newBB] = nonMaximalSupression(c,BB)
+newc = [];
+newBB = [zeros(size(BB))];
+
+while max(c)>0,
+    [val, index] = max(c);
+    newc(end+1) =c(index);
+    newBB(:, length(newc)) = BB(:, index);
+
+    c(index)=-1;
+    for bbindex = 1:length(c),
+        if calcMinOverlap(BB(:, bbindex), BB(:, index)),
+            c(bbindex)=-1;
+        end
+    end
+end
+
+if ~isempty(newc)
+    newBB = newBB(:, 1:size(newc,2));
+end
+
+
 
 
 % iterate through and fire if we're bigger than some cutoff.

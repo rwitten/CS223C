@@ -12,7 +12,7 @@ for i=1:length(newgt),
         bbox=cat(1,rec.objects(clsinds(~diff)).bbox)';
         
         fd = getFeatures(VOCopts,image);
-        newexamples(i,:)=findBestFeature(VOCopts, fd, newdetector, bbox(:,newgt(i)));%, imread(sprintf(VOCopts.imgpath,image)));
+        %newexamples(i,:)=findBestFeature(VOCopts, fd, newdetector, bbox(:,newgt(i)));%, imread(sprintf(VOCopts.imgpath,image)));
     end
 end
 
