@@ -14,6 +14,7 @@ for i=1:length(newgt),
         fd = getFeatures(VOCopts,image);
         curNewExample=findBestFeature(VOCopts, fd, newdetector, bbox(:,newgt(i)));%, imread(sprintf(VOCopts.imgpath,image)));
         if (size(curNewExample,1) > 0) newexamples(i,:) = curNewExample;
+        end
     end
 end
 
