@@ -11,12 +11,12 @@ VOCopts.cellsize = 8;
 VOCopts.numgradientdirections = 9;
 VOCopts.firstdim = 10;
 VOCopts.seconddim=6;
-VOCopts.rootfilterminingiters=1;
+VOCopts.rootfilterminingiters=3;
 VOCopts.rootfilterupdateiters=0;
 VOCopts.TRAIN_IMAGES=5000; %this is the size of cache in terms of number of images
 VOCopts.pyramidscale = 1/1.1;
 VOCopts.hognormclip = 0.35;
-VOCopts.rootsamples = 5;
+VOCopts.rootsamples = 20;
 %VOCopts.firstdim = 32; %empirical average!
 %VOCopts.seconddim=22; %empirical average!
 
@@ -41,8 +41,8 @@ function [newexamples, newgt,newimagenumberlabels,labels] = fillexamples(VOCopts
 ids=textread(sprintf(VOCopts.imgsetpath,'train'),'%s');
 
 %TOTAL_IMAGES=length(ids);
-%TOTAL_IMAGES=2500;
-TOTAL_IMAGES=100;
+TOTAL_IMAGES=2500;
+%TOTAL_IMAGES=100;
 TRAIN_IMAGES=VOCopts.TRAIN_IMAGES;
 
 % extract features and bounding boxes
@@ -162,7 +162,6 @@ binaryizegt = 2*((newgt>0)-.5);
 [predicted_label, accuracy] ...
    = liblinearpredict(binaryizegt',sparse(newexamples),svmStruct);
 
-svmStruct.multiplier
 scores = svmStruct.multiplier*[newexamples,ones(size(newexamples,1),1)] * svmStruct.w';
 
 empiricalerrors= sum(abs(2*((scores > 0 )-.5) - predicted_label))/2;
@@ -171,7 +170,7 @@ empiricalerrors= sum(abs(2*((scores > 0 )-.5) - predicted_label))/2;
 fprintf('number of errors %d vs. number of examples %d', ...
         empiricalerrors,length(scores));
 
-howbadwedid = scores.*newgt';
+howbadwedid = scores.*binaryizegt';
 
 badnesscutoff = median(howbadwedid)
 
@@ -232,27 +231,22 @@ detector=newdetector;
 
 disp 'training latently'
 for i=1:VOCopts.rootfilterupdateiters,%this step is "Root Filter Update"
-    fprintf('Training latently iteration %d\n', i);
+    fprintf('Training latently iteration %d with this many examples %d\n', i, length(newgt));
     tic;
     [newexamples] = findNewPositives(VOCopts, cls, newgt, newexamples, newimagenumbers,detector);
     toc
     detector = detectorTrain(newgt, newexamples);
 end
 
-[detector]=finaltrainandtest(VOCopts, cls, newgt, newexamples,labels);
+[detector]=finaltest(VOCopts, cls, labels, detector);
 
 
-function [detector] = finaltrainandtest(VOCopts, cls, newgt, newexamples,labels)
-
+function [detector] = finaltest(VOCopts, cls, labels, detector)
 disp 'final showdown'
-binaryizegt = 2*((newgt>0)-.5);
-detector = detectorTrain(newgt,newexamples);
-                      %we need to train a final detector on hard examples
-disp 'detector trained'
 
 [newtestexamples, newtestgt] = fillexamples(VOCopts, cls, [], [], [],labels);
 
-
+binaryizegt = newtestgt>0;
 disp 'testing detector'
 naiveperformance = abs((sum(binaryizegt>0) - sum(binaryizegt<0))/length(binaryizegt))/2 + .5 %baseline
 
