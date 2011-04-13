@@ -12,8 +12,10 @@ for i=1:length(newgt),
         bbox=cat(1,rec.objects(clsinds(~diff)).bbox)';
         
         fd = getFeatures(VOCopts,image);
-        newexamples(i,:)=findBestFeature(VOCopts, fd, newdetector, ...
+        curNewExample=findBestFeature(VOCopts, fd, newdetector, ...
             newexamples(i,:),bbox(:,newgt(i)));%, imread(sprintf(VOCopts.imgpath,image)));
+        if (size(curNewExample,1) > 0) newexamples(i,:) = curNewExample;
+        end
     end
 end
 
