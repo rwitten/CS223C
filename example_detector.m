@@ -13,7 +13,7 @@ VOCopts.firstdim = 10;
 VOCopts.seconddim=6;
 VOCopts.rootfilterminingiters=1;
 VOCopts.rootfilterupdateiters=1;
-VOCopts.TRAIN_IMAGES=50; %this is the size of cache in terms of number of images
+VOCopts.TRAIN_IMAGES=10; %this is the size of cache in terms of number of images
 VOCopts.pyramidscale = 1/1.1;
 VOCopts.hognormclip = 0.35;
 %VOCopts.firstdim = 32; %empirical average!
@@ -39,9 +39,9 @@ function [newexamples, newgt,newimagenumberlabels,labels] = fillexamples(VOCopts
 % load 'train' image set
 ids=textread(sprintf(VOCopts.imgsetpath,'train'),'%s');
 
-TOTAL_IMAGES=length(ids);
+%TOTAL_IMAGES=length(ids);
 %TOTAL_IMAGES=2500;
-%TOTAL_IMAGES=100;
+TOTAL_IMAGES=100;
 TRAIN_IMAGES=VOCopts.TRAIN_IMAGES;
 
 % extract features and bounding boxes
@@ -128,6 +128,16 @@ newgt=detector.gt;
 newexamples = detector.FD(1:length(newgt), :);
 newimagenumberlabels=detector.imagenumberlabels;
 
+%Add mirror flipped examples
+flipExamples = reshape(newexamples, [size(newexamples,1) VOCopts.firstdim VOCopts.seconddim VOCopts.blocksize^2*VOCopts.numgradientdirections]);
+flipExamples = flipExamples(:,:,end:-1:1,:);
+size(flipExamples)
+flipExamples = reshape(flipExamples, [size(newexamples,1) VOCopts.firstdim*VOCopts.seconddim*VOCopts.blocksize^2*VOCopts.numgradientdirections]);
+newexamples = [newexamples; flipExamples];
+newgt = [newgt newgt];
+newimagenumberlabels = [newimagenumberlabels newimagenumberlabels];
+%labels = [labels labels]
+
 function sanitycheck(labels, savedfeatures, savedgt)
 
 for i=1:length(savedgt)
@@ -207,7 +217,7 @@ for i=1:VOCopts.rootfilterminingiters, %this is finding "Root Filter Initializat
     fprintf('we are on iteration %d\n', i);
     [newexamples, newgt,newimagenumbers,labels] = ...
         fillexamples(VOCopts, cls, savedfeatures, savedgt, savedimagelabel,labels);
-    sanitycheck(labels, newexamples,newgt);
+    %sanitycheck(labels, newexamples,newgt);
     fprintf('number of examples to train on: %d\n',length(newgt));
     
     perm = randperm(length(newgt));
@@ -340,8 +350,7 @@ for pyramidIndex=1:length(fd)
             score = detector.multiplier*[HOGVector,1]*detector.w';
             if score>1,
                 c = [c score];
-                newboundingbox = [pixelBox(3); pixelBox(1);pixelBox(4); pixelBox(2)];
-                BB = [BB newboundingbox];
+                BB = [BB pixelBox];
                 %disp 'gotta match'
             end
         end
@@ -361,7 +370,7 @@ for k = 1:size(BB,2)
     end
 end
 
-imwrite(I, sprintf('image%d.png', number), 'png');
+%imwrite(I, sprintf('image%d.png', number), 'png');
 
 
 fprintf('number of matches found %d\n', length(c));
