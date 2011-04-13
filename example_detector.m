@@ -61,7 +61,7 @@ if length(originalgt)>0,
     detector.FD(1:length(detector.gt), :) = originalexamples;
 end
 
-while TRAIN_IMAGES/2>length(detector.gt),
+while TRAIN_IMAGES>length(detector.gt),
     i = floor(rand*TOTAL_IMAGES)+1;
     % display progress
     if toc>1
@@ -102,6 +102,13 @@ while TRAIN_IMAGES/2>length(detector.gt),
 
         [examples bbIndices] = extractExample(VOCopts, a{1},fd);
         if (size(examples,1) > 0)
+             %Add flip of examples
+            flipExamples = reshape(examples, [size(examples,1) VOCopts.firstdim VOCopts.seconddim VOCopts.blocksize^2*VOCopts.numgradientdirections]);
+            flipExamples = flipExamples(:,:,end:-1:1,:);
+            flipExamples = reshape(flipExamples, [size(examples,1) VOCopts.firstdim*VOCopts.seconddim*VOCopts.blocksize^2*VOCopts.numgradientdirections]);
+            examples = [examples; flipExamples];
+            bbIndices = [bbIndices bbIndices];
+            
             for image=1:size(examples,1),
                 key= num2str(examples(image,:));
                 val = num2str(gt);
@@ -128,14 +135,6 @@ newgt=detector.gt;
 newexamples = detector.FD(1:length(newgt), :);
 newimagenumberlabels=detector.imagenumberlabels;
 
-%Add mirror flipped examples
-flipExamples = reshape(newexamples, [size(newexamples,1) VOCopts.firstdim VOCopts.seconddim VOCopts.blocksize^2*VOCopts.numgradientdirections]);
-flipExamples = flipExamples(:,:,end:-1:1,:);
-flipExamples = reshape(flipExamples, [size(newexamples,1) VOCopts.firstdim*VOCopts.seconddim*VOCopts.blocksize^2*VOCopts.numgradientdirections]);
-newexamples = [newexamples; flipExamples];
-newgt = [newgt newgt];
-newimagenumberlabels = [newimagenumberlabels newimagenumberlabels];
-%labels = [labels labels]
 
 function sanitycheck(labels, savedfeatures, savedgt)
 
@@ -379,7 +378,7 @@ function [newc, newBB] = nonMaximalSupression(c,BB)
 newc = [];
 newBB = [zeros(size(BB))];
 
-while max(c)>0,
+while max(c)>1,
     [val, index] = max(c);
     newc(end+1) =c(index);
     newBB(:, length(newc)) = BB(:, index);
