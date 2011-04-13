@@ -11,9 +11,9 @@ VOCopts.cellsize = 8;
 VOCopts.numgradientdirections = 9;
 VOCopts.firstdim = 10;
 VOCopts.seconddim=6;
-VOCopts.rootfilterminingiters=1;
+VOCopts.rootfilterminingiters=3;
 VOCopts.rootfilterupdateiters=1;
-VOCopts.TRAIN_IMAGES=10; %this is the size of cache in terms of number of images
+VOCopts.TRAIN_IMAGES=50; %this is the size of cache in terms of number of images
 VOCopts.pyramidscale = 1/1.1;
 VOCopts.hognormclip = 0.35;
 %VOCopts.firstdim = 32; %empirical average!
@@ -61,7 +61,7 @@ if length(originalgt)>0,
     detector.FD(1:length(detector.gt), :) = originalexamples;
 end
 
-while TRAIN_IMAGES>length(detector.gt),
+while TRAIN_IMAGES/2>length(detector.gt),
     i = floor(rand*TOTAL_IMAGES)+1;
     % display progress
     if toc>1
@@ -131,7 +131,6 @@ newimagenumberlabels=detector.imagenumberlabels;
 %Add mirror flipped examples
 flipExamples = reshape(newexamples, [size(newexamples,1) VOCopts.firstdim VOCopts.seconddim VOCopts.blocksize^2*VOCopts.numgradientdirections]);
 flipExamples = flipExamples(:,:,end:-1:1,:);
-size(flipExamples)
 flipExamples = reshape(flipExamples, [size(newexamples,1) VOCopts.firstdim*VOCopts.seconddim*VOCopts.blocksize^2*VOCopts.numgradientdirections]);
 newexamples = [newexamples; flipExamples];
 newgt = [newgt newgt];
@@ -346,9 +345,9 @@ for pyramidIndex=1:length(fd)
     for x = 1+VOCopts.firstdim/2 :xdim - VOCopts.firstdim/2,
         for y = 1+VOCopts.seconddim/2:ydim - VOCopts.seconddim/2,
             [pixelBox, pixelCenter]=HOGSpaceToPixelSpace(VOCopts, [x;y],pyramidIndex);
-            [HOGCenter, HOGVector] = pixelSpaceToHOGSpace(VOCopts, fd, pixelCenter,pyramidIndex);
+            [~, HOGVector] = pixelSpaceToHOGSpace(VOCopts, fd, pixelCenter,pyramidIndex);
             score = detector.multiplier*[HOGVector,1]*detector.w';
-            if score>1,
+            if score>0,
                 c = [c score];
                 BB = [BB pixelBox];
                 %disp 'gotta match'
