@@ -19,20 +19,25 @@ Im = rgb2gray(ImColor);
 hx = [-1,0, 1];
 hy = hx';
 
-grad_xr = imfilter(double(Im),hx); %O. Ludwig, D. Delgado, V. Goncalves, and U. Nunes, 'Trainable 
+grad_xr = imfilter(double(Im),hx,'same'); %O. Ludwig, D. Delgado, V. Goncalves, and U. Nunes, 'Trainable 
                                    %Classifier-Fusion Schemes: An Application To Pedestrian Detection,'
                                    %gave me some wise guidance on how to do this.
                                    
-grad_yu = imfilter(double(Im),hy);
+grad_yu = imfilter(double(Im),hy,'same');
 
 %Populate orientaiton vectors for each cell
-cellGrid = zeros(floor(size(Im,1)/cellsize), floor(size(Im,2)/cellsize),numgradientdirections);
+cellGrid = zeros(floor(size(Im,1)/cellsize), floor(size(Im,2)/cellsize), numgradientdirections);
 for x = 1:floor(size(Im,1)/cellsize)
     for y = 1:floor(size(Im,2)/cellsize)
-        yblock = grad_yu( ((x-1)*cellsize+1):(cellsize*x), ((y-1)*cellsize+1):(cellsize*y));
-        xblock = grad_xr( ((x-1)*cellsize+1):(cellsize*x), ((y-1)*cellsize+1):(cellsize*y));
+        yblock = grad_yu( max(1,((x-1)*cellsize+1 - cellsize/2)):min(size(grad_yu,1),(cellsize*x + cellsize/2)),...
+            max(1,((y-1)*cellsize+1 - cellsize/2)):min(size(grad_yu,2),(cellsize*y + cellsize/2)));
+        xblock = grad_xr( max(1,((x-1)*cellsize+1 - cellsize/2)):min(size(grad_xr,1),(cellsize*x + cellsize/2)),...
+            max(1,((y-1)*cellsize+1 - cellsize/2)):min(size(grad_xr,2),(cellsize*y + cellsize/2)));
         angles = mod(atan(yblock./xblock),pi);
-        cellGrid(x,y,:) = bucketize(angles, yblock, xblock, numgradientdirections);
+        angles1 = mod(angles + pi/(2*numgradientdirections), pi);
+        angles2 = mod(angles - pi/(2*numgradientdirections), pi);
+        cellGrid(x,y,:) = squeeze(cellGrid(x,y,:))' + bucketize(angles1, yblock, xblock, numgradientdirections)';
+        cellGrid(x,y,:) = squeeze(cellGrid(x,y,:))' + bucketize(angles2, yblock, xblock, numgradientdirections)';
     end
 end
 
