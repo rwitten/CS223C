@@ -11,12 +11,14 @@ VOCopts.cellsize = 8;
 VOCopts.numgradientdirections = 9;
 VOCopts.firstdim = 10;
 VOCopts.seconddim=6;
-VOCopts.rootfilterminingiters=3;
+VOCopts.rootfilterminingiters=5;
 VOCopts.rootfilterupdateiters=0;
 VOCopts.TRAIN_IMAGES=5000; %this is the size of cache in terms of number of images
 VOCopts.pyramidscale = 1/1.1;
 VOCopts.hognormclip = 0.35;
-VOCopts.rootsamples = 20;
+VOCopts.rootsampleslatesttraining = 50;
+VOCopts.rootsamplestesting = 500;
+VOCopts.imagestotestwith=100;
 %VOCopts.firstdim = 32; %empirical average!
 %VOCopts.seconddim=22; %empirical average!
 
@@ -27,8 +29,8 @@ fprintf('\n\n\n\n')
 fprintf('*************************************\n')
 fprintf('         Entering Testing            \n')
 fprintf('*************************************\n')
-%test(VOCopts,cls,detector);                             % test detector
-%[recall,prec,ap]=VOCevaldet(VOCopts,'comp3',cls,true);  % compute and display PR #which means precision recall
+test(VOCopts,cls,detector);                             % test detector
+[recall,prec,ap]=VOCevaldet(VOCopts,'comp3',cls,true);  % compute and display PR #which means precision recall
 drawnow;
 
 
@@ -193,7 +195,7 @@ hardexamples=savedfeatures(1:length(savedgt),:);
 hardgt = savedgt;
 hardimagelabel = savedimagelabel;
 
-fprintf('number of saved examples: %d\n',size(savedfeatures,1));
+fprintf('number of saved examples: %d\n',size(hardexamples,1));
 
 %testgt' - 2*((scores > 0 )-.5)
 
@@ -231,11 +233,14 @@ detector=newdetector;
 
 disp 'training latently'
 for i=1:VOCopts.rootfilterupdateiters,%this step is "Root Filter Update"
+    [newexamples, newgt,newimagenumbers,labels] = ...
+        fillexamples(VOCopts, cls, savedfeatures, savedgt, savedimagelabel,labels);
     fprintf('Training latently iteration %d with this many examples %d\n', i, length(newgt));
     tic;
     [newexamples] = findNewPositives(VOCopts, cls, newgt, newexamples, newimagenumbers,detector);
     toc
-    detector = detectorTrain(newgt, newexamples);
+    [newdetector, savedfeatures, savedgt, savedimagelabel] = extractHardExamples(newexamples, newgt,newimagenumbers);
+    %detector = detectorTrain(newgt, newexamples);
 end
 
 [detector]=finaltest(VOCopts, cls, labels, detector);
@@ -277,11 +282,15 @@ binaryizegt = 2*((newtestgt>0)-.5);
 % run detector on test images
 %TEST_IMAGES=length(ids);
 function out = test(VOCopts,cls,detector)
-TEST_IMAGES=100;
-%TEST_IMAGES=length(ids);
-
 % load test set ('val' for development kit)
 [ids,gt]=textread(sprintf(VOCopts.imgsetpath,VOCopts.testset),'%s %d');
+
+TEST_IMAGES=VOCopts.imagestotestwith;
+%TEST_IMAGES=length(ids);
+
+fprintf('number of images we could hope to use %d \n', length(ids));
+
+
 
 % create results file
 fid=fopen(sprintf(VOCopts.detrespath,'comp3',cls),'w');
@@ -310,6 +319,7 @@ for i=1:TEST_IMAGES,
 
     % compute confidence of positive classification and bounding boxes
     I = imread(sprintf(VOCopts.imgpath,ids{i}));
+   
     [c,BB]= detect(VOCopts,detector,fd,I,i);
 
     % write to results file
@@ -329,6 +339,9 @@ function [c,BB] = detect(VOCopts,detector,fd,I,number)
 c = [];
 BB = [];
 
+bbox = [1; 1; size(I,2); size(I,1)];
+%[c, BB, ~] = findBestNegativeExample(VOCopts, fd, detector, [],bbox,VOCopts.rootsamplestesting);
+
 for pyramidIndex=1:length(fd)
     currlevel = fd{pyramidIndex};
     xdim = size(currlevel,1);
@@ -346,25 +359,15 @@ for pyramidIndex=1:length(fd)
         end
     end
 end
-size(BB)
+
 [c,BB] = nonMaximalSupression(c,BB);
 
 
-for k = 1:size(BB,2)
-    pixelBox=BB(:,k);
-    for x=1:size(I,1),
-        for y=1:size(I,2),
-            if x > pixelBox(2) && x < pixelBox(4) && y>pixelBox(1) && y<pixelBox(3)
-                I(x,y,1) = 1e4;
-            end
-        end
-    end
-end
-
-%imwrite(I, sprintf('image%d.png', number), 'png');
+disp 'about to draw'
+drawWithBB(I,BB,sprintf('image%d.png', number));
 
 
-fprintf('number of matches found %d\n', length(c));
+fprintf('number of matches found %d in image %d\n', length(c),number);
 
 function [newc, newBB] = nonMaximalSupression(c,BB)
 newc = [];

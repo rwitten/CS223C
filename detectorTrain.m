@@ -1,7 +1,7 @@
 function [detector] = detectorTrain(gt, examples)
 
 binarygt = 2*((gt>0)-.5);
-detector = liblineartrain(binarygt', sparse(examples), '-s 2 -B 1 -q');
+detector = liblineartrain(binarygt', sparse(examples), '-s 2 -B 1');
 
 [predicted_label_test, accuracy] ...
        = liblinearpredict(binarygt',sparse(examples),detector);
