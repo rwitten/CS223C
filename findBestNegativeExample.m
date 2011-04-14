@@ -1,9 +1,14 @@
-function bestFeature = findBestNegativeExample(VOCopts, fd, newdetector, currBestFeature,bbox,I)
+function [maxScore,bestBBox, bestFeature] = findBestNegativeExample(VOCopts, fd, newdetector,...
+    currBestFeature,bbox,numsamples)
 
 bestBBox = [];
 
 bestFeature = currBestFeature;
-maxScore = newdetector.multiplier * sum(newdetector.w .* [currBestFeature 1]);
+if length(bestFeature)>0
+    maxScore = newdetector.multiplier * sum(newdetector.w .* [currBestFeature 1]);
+else
+    maxScore=1;
+end
 
 
 height = VOCopts.firstdim * VOCopts.cellsize;
@@ -16,7 +21,7 @@ bby2 = bbox(4);
 bbwidth = bbx2 - bbx1;
 bbheight = bby2 - bby1;
 
-for i=1:VOCopts.rootsamples
+for i=1:numsamples
     curScaleIndex = randsample(length(fd),1);
     curHeight = height * (1/VOCopts.pyramidscale)^(curScaleIndex-1);
     curWidth = width * (1/VOCopts.pyramidscale)^(curScaleIndex-1);

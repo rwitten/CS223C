@@ -10,6 +10,8 @@ VOCopts.blocksize=2;
 VOCopts.cellsize = 8;
 VOCopts.numgradientdirections = 9;
 VOCopts.firstdim = 10;
+VOCopts.seconddim=6;
+VOCopts.rootfilterminingiters=5;
 VOCopts.seconddim= 6;
 VOCopts.rootfilterminingiters=2;
 VOCopts.rootfilterupdateiters=0;
@@ -24,6 +26,7 @@ VOCopts.rootsamples = 30;
 VOCopts.partfirstdim = 6;
 VOCopts.partseconddim = 5;
 VOCopts.numparts = 6;
+VOCopts.TEST_IMAGES = 10;
 %VOCopts.firstdim = 32; %empirical average!
 %VOCopts.seconddim=22; %empirical average!
 % train and test detector for each class
@@ -45,6 +48,8 @@ catch
     
     save('VOCannotations.mat', 'VOCannotations');
 end
+
+fprintf('number of iterations %d\n', length(VOCannotations));
 
 posAnnotations = struct(VOCannotations(1));
 negAnnotations = struct(VOCannotations(1));
@@ -74,13 +79,13 @@ negAnnotations = negAnnotations(2:end);
 VOCopts.posAnnotations = posAnnotations;
 VOCopts.negAnnotations = negAnnotations;
 
-detector=train(VOCopts,cls);                            % train detector
+detector= traina(VOCopts,cls);                            % train detector
 fprintf('\n\n\n\n')
 fprintf('*************************************\n')
 fprintf('         Entering Testing            \n')
 fprintf('*************************************\n')
-%test(VOCopts,cls,detector);                             % test detector
-%[recall,prec,ap]=VOCevaldet(VOCopts,'comp3',cls,true);  % compute and display PR #which means precision recall
+test(VOCopts,cls,detector);                             % test detector
+[recall,prec,ap]=VOCevaldet(VOCopts,'comp3',cls,true);  % compute and display PR #which means precision recall
 drawnow;
 end
 
@@ -271,11 +276,19 @@ savedgt = newgt(hardIndices);
 savedimagelabels = newimagelabels(hardIndices);
 
 
+
+%testgt' - 2*((scores > 0 )-.5)
+
+
+%disp 'how bad we did on the worst'
+%[predicted_label, accuracy] ...
+% = liblinearpredict(savedgt',sparse(savedfeatures),svmStruct);
 fprintf('number of saved examples: %d\n',size(savedfeatures,1));
+
 end
 
 
-function [detector] = train(VOCopts,cls)
+function [detector] = traina(VOCopts,cls)
 
 labels = containers.Map();
 
@@ -318,11 +331,14 @@ end
 
 disp 'training latently'
 for i=1:VOCopts.rootfilterupdateiters,%this step is "Root Filter Update"
+    [newexamples, newgt,newimagenumbers,labels] = ...
+        fillexamples(VOCopts, cls, savedfeatures, savedgt, savedimagelabel,labels);
     fprintf('Training latently iteration %d with this many examples %d\n', i, length(newgt));
     tic;
     [newexamples] = findNewPositives(VOCopts, cls, newgt, newexamples, newimagenumbers,detector);
     toc
-    detector = detectorTrain(newgt, newexamples);
+    [newdetector, savedfeatures, savedgt, savedimagelabel] = extractHardExamples(newexamples, newgt,newimagenumbers);
+    %detector = detectorTrain(newgt, newexamples);
 end
 
 tic;
@@ -376,11 +392,15 @@ end
 % run detector on test images
 %TEST_IMAGES=length(ids);
 function out = test(VOCopts,cls,detector)
-TEST_IMAGES=100;
-%TEST_IMAGES=length(ids);
-
 % load test set ('val' for development kit)
 [ids,gt]=textread(sprintf(VOCopts.imgsetpath,VOCopts.testset),'%s %d');
+
+TEST_IMAGES=VOCopts.TEST_IMAGES;
+%TEST_IMAGES=length(ids);
+
+fprintf('number of images we could hope to use %d \n', length(ids));
+
+
 
 % create results file
 fid=fopen(sprintf(VOCopts.detrespath,'comp3',cls),'w');
@@ -413,6 +433,7 @@ for i=1:TEST_IMAGES,
     
     % compute confidence of positive classification and bounding boxes
     I = imread(sprintf(VOCopts.imgpath,ids{i}));
+   
     [c,BB]= detect(VOCopts,detector,fd,I,i);
     
     % write to results file
@@ -427,12 +448,16 @@ fclose(fid);
 end
 
 
+
 % trivial detector: confidence is computed as in example_classifier, and
 % bounding boxes of nearest positive training image are output
 function [c,BB] = detect(VOCopts,detector,fd,I,number)
 
 c = [];
 BB = [];
+
+bbox = [1; 1; size(I,2); size(I,1)];
+%[c, BB, ~] = findBestNegativeExample(VOCopts, fd, detector, [],bbox,VOCopts.rootsamplestesting);
 
 for pyramidIndex=1:length(fd)
     currlevel = fd{pyramidIndex};
@@ -451,25 +476,17 @@ for pyramidIndex=1:length(fd)
         end
     end
 end
-size(BB)
+
 [c,BB] = nonMaximalSupression(c,BB);
 
 
-for k = 1:size(BB,2)
-    pixelBox=BB(:,k);
-    for x=1:size(I,1),
-        for y=1:size(I,2),
-            if x > pixelBox(2) && x < pixelBox(4) && y>pixelBox(1) && y<pixelBox(3)
-                I(x,y,1) = 1e4;
-            end
-        end
-    end
-end
-
-%imwrite(I, sprintf('image%d.png', number), 'png');
+disp 'about to draw'
+drawWithBB(I,BB,sprintf('image%d.png', number));
 
 
-fprintf('number of matches found %d\n', length(c));
+
+fprintf('number of matches found %d in image %d\n', length(c),number);
+
 end
 
 function [newc, newBB] = nonMaximalSupression(c,BB)
@@ -493,8 +510,4 @@ if ~isempty(newc)
     newBB = newBB(:, 1:size(newc,2));
 end
 
-
-
-
-% iterate through and fire if we're bigger than some cutoff.
 end

@@ -13,16 +13,16 @@ for i=1:length(newgt),
         clsinds=strmatch(cls,{rec.objects(:).class},'exact');
         diff=[rec.objects(clsinds).difficult];
         bbox=cat(1,rec.objects(clsinds(~diff)).bbox)';
-        curNewExample=findBestFeature(VOCopts, fd, newdetector, bbox(:,newgt(i)));%, imread(sprintf(VOCopts.imgpath,image)));
-            %newexamples(i,:),
-            
+        %curNewExample=findBestFeature(VOCopts, fd, newdetector, ...
+        %    newexamples(i,:),bbox(:,newgt(i)));%, imread(sprintf(VOCopts.imgpath,image)));
+        curNewExample = newexamples(i,:);
     else
         I = imread(sprintf(VOCopts.imgpath,image));
         bbox = [1; 1; size(I,2); size(I,1)];
-        curNewExample=findBestNegativeExample(VOCopts, fd, newdetector, ...
-            newexamples(i,:),bbox );
+        [~,~,curNewExample]=findBestNegativeExample(VOCopts, fd, newdetector, ...
+            newexamples(i,:),bbox, VOCopts.rootsampleslatesttraining);
+         
     end
-        
     if (size(curNewExample,1) > 0) newexamples(i,:) = curNewExample;
     end
 end
