@@ -8,7 +8,10 @@ catch
     % compute and save features
     I=imread(sprintf(VOCopts.imgpath,imageNumber));
     fd=extractFD(VOCopts,I);
-    save(sprintf(VOCopts.exfdpath,imageNumber),'fd');
+    try
+        save(sprintf(VOCopts.exfdpath,imageNumber),'fd');
+    catch
+    end
 end
 
 end

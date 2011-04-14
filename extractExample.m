@@ -1,5 +1,5 @@
 
-function [ HOGVectors bbIndices] = extractExample( VOCopts, boundingbox,features )
+function [ HOGVectors bbIndices] = extractExample( VOCopts, boundingbox,features, I )
 %EXTRACTEXAMPLE Summary of this function goes here
 %   Extract either a positive or a negative example from the image
 
@@ -10,7 +10,7 @@ if size(boundingbox,1)<1,
     centers = [];
     pyramidIndices = [];
     bbIndices = [];
-    for i=1:ceil(3*rand)
+    for i=1:ceil(2+3*rand)
       newPyramidIndex = floor(rand()*length(features) + 1);
       scale = VOCopts.pyramidscale ^ (newPyramidIndex-1);
       scaleWidth = VOCopts.cellsize*VOCopts.seconddim/scale;
@@ -23,6 +23,9 @@ else
     centers = [];
     pyramidIndices = [];
     bbIndices = [];
+      %figure();
+        %drawBoundingBox(I, boundingbox);
+        
     
     for i= 1:size(boundingbox,2),
         currbox = boundingbox(:,i) + floor((rand(4,1)-.5)*16);
@@ -44,14 +47,13 @@ else
         
         if (overlapPercent < 0.55) continue;
         end
-        
+      
         %newcenter = newcenter + offset;
         centers = [centers newcenter];
         pyramidIndices = [pyramidIndices scaleIndex];
         bbIndices = [bbIndices i];
-        %figure();
-        %drawBoundingBox(VOCopts, I, currbox, scaleIndex);
-        
+    
+      
     end
 end
 
@@ -60,6 +62,10 @@ HOGVectors = [];
 for i=1:size(centers,2),
     [HOGCenter, HOGVector]=pixelSpaceToHOGSpace(VOCopts, features, centers(:,i), pyramidIndices(i));
     HOGVectors = [HOGVectors; HOGVector];
+    if (size(boundingbox,1) >= 1) 
+        %figure();
+        %visualizeHOG(reshape(HOGVector, [VOCopts.firstdim VOCopts.seconddim VOCopts.blocksize^2*VOCopts.numgradientdirections]));
+    end
 end
 
 %This code helps you draw boxes.
