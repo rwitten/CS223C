@@ -26,6 +26,7 @@ VOCopts.rootsamples = 30;
 VOCopts.partfirstdim = 6;
 VOCopts.partseconddim = 5;
 VOCopts.numparts = 6;
+VOCopts.TEST_IMAGES = 10;
 %VOCopts.firstdim = 32; %empirical average!
 %VOCopts.seconddim=22; %empirical average!
 % train and test detector for each class
@@ -47,6 +48,8 @@ catch
     
     save('VOCannotations.mat', 'VOCannotations');
 end
+
+fprintf('number of iterations %d\n', length(VOCannotations));
 
 posAnnotations = struct(VOCannotations(1));
 negAnnotations = struct(VOCannotations(1));
@@ -76,7 +79,7 @@ negAnnotations = negAnnotations(2:end);
 VOCopts.posAnnotations = posAnnotations;
 VOCopts.negAnnotations = negAnnotations;
 
-detector=train(VOCopts,cls);                            % train detector
+detector= traina(VOCopts,cls);                            % train detector
 fprintf('\n\n\n\n')
 fprintf('*************************************\n')
 fprintf('         Entering Testing            \n')
@@ -282,8 +285,10 @@ savedimagelabels = newimagelabels(hardIndices);
 % = liblinearpredict(savedgt',sparse(savedfeatures),svmStruct);
 fprintf('number of saved examples: %d\n',size(savedfeatures,1));
 
+end
 
-function [detector] = train(VOCopts,cls)
+
+function [detector] = traina(VOCopts,cls)
 
 labels = containers.Map();
 
@@ -390,7 +395,7 @@ function out = test(VOCopts,cls,detector)
 % load test set ('val' for development kit)
 [ids,gt]=textread(sprintf(VOCopts.imgsetpath,VOCopts.testset),'%s %d');
 
-TEST_IMAGES=VOCopts.imagestotestwith;
+TEST_IMAGES=VOCopts.TEST_IMAGES;
 %TEST_IMAGES=length(ids);
 
 fprintf('number of images we could hope to use %d \n', length(ids));
@@ -443,6 +448,7 @@ fclose(fid);
 end
 
 
+
 % trivial detector: confidence is computed as in example_classifier, and
 % bounding boxes of nearest positive training image are output
 function [c,BB] = detect(VOCopts,detector,fd,I,number)
@@ -478,7 +484,10 @@ disp 'about to draw'
 drawWithBB(I,BB,sprintf('image%d.png', number));
 
 
+
 fprintf('number of matches found %d in image %d\n', length(c),number);
+
+end
 
 function [newc, newBB] = nonMaximalSupression(c,BB)
 newc = [];
@@ -501,8 +510,4 @@ if ~isempty(newc)
     newBB = newBB(:, 1:size(newc,2));
 end
 
-
-
-
-% iterate through and fire if we're bigger than some cutoff.
 end
