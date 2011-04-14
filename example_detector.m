@@ -11,14 +11,14 @@ VOCopts.cellsize = 8;
 VOCopts.numgradientdirections = 9;
 VOCopts.firstdim = 10;
 VOCopts.seconddim=6;
-VOCopts.rootfilterminingiters=3;
-VOCopts.rootfilterupdateiters=0;
-VOCopts.TRAIN_IMAGES=20; %this is the size of cache in terms of number of images
+VOCopts.rootfilterminingiters=5;
+VOCopts.rootfilterupdateiters=3;
+VOCopts.TRAIN_IMAGES=200; %this is the size of cache in terms of number of images
 VOCopts.pyramidscale = 1/1.1;
-VOCopts.hognormclip = 0.35;
-VOCopts.rootsamples = 50;
-VOCopts.partfirstdim = 8;
-VOCopts.partseconddim = 4;
+VOCopts.hognormclip = 0.6;
+VOCopts.rootsamples = 30;
+VOCopts.partfirstdim = 6;
+VOCopts.partseconddim = 5;
 VOCopts.numparts = 6;
 %VOCopts.firstdim = 32; %empirical average!
 %VOCopts.seconddim=22; %empirical average!
@@ -45,7 +45,7 @@ ids=textread(sprintf(VOCopts.imgsetpath,'train'),'%s');
 
 %TOTAL_IMAGES=length(ids);
 %TOTAL_IMAGES=2500;
-TOTAL_IMAGES=100;
+TOTAL_IMAGES=800;
 TRAIN_IMAGES=VOCopts.TRAIN_IMAGES;
 
 % extract features and bounding boxes
@@ -104,7 +104,7 @@ while TRAIN_IMAGES>length(detector.gt),
         
         %detector.FD = [detector.FD;extractExample(VOCopts, a{1},fd )];
 
-        [examples bbIndices] = extractExample(VOCopts, a{1},fd);
+        [examples bbIndices] = extractExample(VOCopts, a{1},fd, imread(sprintf(VOCopts.imgpath,ids{i})));
         if (size(examples,1) > 0)
              %Add flip of examples
             flipExamples = reshape(examples, [size(examples,1) VOCopts.firstdim VOCopts.seconddim VOCopts.blocksize^2*VOCopts.numgradientdirections]);
@@ -245,9 +245,9 @@ tic;
 [partFilters partBBoxes] = initializePartsFromRoot(VOCopts, detector.w);
 toc
 
-partBBoxes
+%partBBoxes
 
-[detector]=finaltest(VOCopts, cls, labels, detector);
+%[detector]=finaltest(VOCopts, cls, labels, detector);
 
 
 function [detector] = finaltest(VOCopts, cls, labels, detector)
@@ -314,7 +314,11 @@ for i=1:TEST_IMAGES,
         % compute and save features
         I=imread(sprintf(VOCopts.imgpath,ids{i}));
         fd=extractfd(VOCopts,I);
-        save(sprintf(VOCopts.exfdpath,ids{i}),'fd');
+        try
+            save(sprintf(VOCopts.exfdpath,ids{i}),'fd');
+        catch
+            
+        end
     end
 
     % compute confidence of positive classification and bounding boxes

@@ -14,14 +14,19 @@ horRep = imfilter(horRep, ones(1, 2*size(shapedFilter,2)), 'full');
 horRep = horRep(1:2*size(shapedFilter,1));
 doubledFilter = shapedFilter(vertRep, horRep, :);
 
-energyMap = zeros(rootfirstdim, rootseconddim);
-for y=1:rootfirstdim
-    for x=1:rootseconddim
-        energyMap(y,x) = norm(squeeze(shapedFilter(y,x,:)),2);
+%figure();
+%visualizeHOG(shapedFilter);
+
+energyMap = zeros(2*rootfirstdim, 2*rootseconddim);
+for y=1:2*rootfirstdim
+    for x=1:2*rootseconddim
+        energyMap(y,x) = norm(squeeze(doubledFilter(y,x,:).*(doubledFilter(y,x,:)>0)),2);
     end
 end
+figure();
+imagesc(255*energyMap./max(max(energyMap)));
 
-sameOrient = ones(partfirstdim/2, partseconddim/2);
+sameOrient = ones(partfirstdim, partseconddim);
 flipOrient = sameOrient';
 
 bboxes = zeros(4,numparts);
@@ -48,16 +53,15 @@ for i=1:numparts
     
     %zero out energy map
     energyMap(max(1,lowy):min(end,highy),max(1,lowx):min(end,highx)) = 0;
+    %figure();
+    %imagesc(255*energyMap./max(max(energyMap)));
+
     
     %Convert coordinates to be in part space
-    lowx = 2*lowx-1;
-    lowy = 2*lowy-1;
-    highx = 2*highx;
-    highy = 2*highy;
     bboxes(:,i) = [lowx; lowy; highx; highy;];
     
     %createPart       
-    paddedFilter = padarray(doubledFilter, [2*size(curOrient) 0]);
-    filterArea = paddedFilter(2*(size(curOrient,1)-1) + (lowy:highy), 2*(size(curOrient,2)-1) + (lowx:highx),:);
+    paddedFilter = padarray(doubledFilter, [size(curOrient) 0]);
+    filterArea = paddedFilter((size(curOrient,1)-1) + (lowy:highy), (size(curOrient,2)-1) + (lowx:highx),:);
     pfilters(:,i) = reshape(filterArea, [1 prod(size(filterArea))]);
 end
