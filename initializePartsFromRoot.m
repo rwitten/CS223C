@@ -23,8 +23,8 @@ for y=1:2*rootfirstdim
         energyMap(y,x) = norm(squeeze(doubledFilter(y,x,:).*(doubledFilter(y,x,:)>0)),2);
     end
 end
-figure();
-imagesc(255*energyMap./max(max(energyMap)));
+%figure();
+%imagesc(255*energyMap./max(max(energyMap)));
 
 sameOrient = ones(partfirstdim, partseconddim);
 flipOrient = sameOrient';
