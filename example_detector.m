@@ -11,16 +11,16 @@ VOCopts.cellsize = 8;
 VOCopts.numgradientdirections = 9;
 VOCopts.firstdim = 10;
 VOCopts.seconddim=6;
-VOCopts.rootfilterminingiters=5;
-VOCopts.seconddim= 6;
-VOCopts.rootfilterminingiters=2;
+VOCopts.rootfilterminingiters=1;
 VOCopts.rootfilterupdateiters=0;
-VOCopts.NEG_TRAIN_IMAGES=1000;
-VOCopts.POS_TRAIN_IMAGES=1000;
-VOCopts.MAX_NEG_EXAMPLES=500;  %this is the size of cache in terms of number of images
-VOCopts.MAX_POS_EXAMPLES=500;
+VOCopts.partfilterupdateiters=2;
+VOCopts.NEG_TRAIN_IMAGES=10;
+VOCopts.POS_TRAIN_IMAGES=10;
+VOCopts.MAX_NEG_EXAMPLES=10;  %this is the size of cache in terms of number of images
+VOCopts.MAX_POS_EXAMPLES=10;
 VOCopts.HARDNESS_CUTOFF=-0.2; %all neg examples with scores greater than this are kept
-VOCopts.pyramidscale = 1/1.1;
+VOCopts.pyramidscale = 1/(2^(1/5));
+VOCopts.partstorootindexdiff = 5;
 VOCopts.hognormclip = 0.6;
 VOCopts.rootsamples = 30;
 VOCopts.partfirstdim = 6;
@@ -41,6 +41,7 @@ catch
     for i=1:length(ids)
         rec=PASreadrecord(sprintf(VOCopts.annopath,ids{i}));
         VOCannotations(i).id = [ids(i)];
+        VOCannotations(i).idIndex = i;
         VOCannotations(i).bboxes = {rec.objects(:).bbox};
         VOCannotations(i).classes = {rec.objects(:).class};
         VOCannotations(i).difficult = [rec.objects(:).difficult];
@@ -49,7 +50,7 @@ catch
     save('VOCannotations.mat', 'VOCannotations');
 end
 
-fprintf('number of iterations %d\n', length(VOCannotations));
+fprintf('number of annotations %d\n', length(VOCannotations));
 
 posAnnotations = struct(VOCannotations(1));
 negAnnotations = struct(VOCannotations(1));
@@ -146,9 +147,9 @@ for i=1:min(POS_TRAIN_IMAGES, length(curAnnotations))
         %one example for each bounding box,
         %should be a vector of size
         %w*h * 4*9
-        labelvalues = bbIndices;
+        labelvalues = bbIndices;      
         
-        detector.imagenumberlabels = [detector.imagenumberlabels, i*ones(1,size(examples,1))];
+        detector.imagenumberlabels = [detector.imagenumberlabels curAnnotations(i).idIndex*ones(1,size(examples,1))];
         detector.gt = [detector.gt, labelvalues];
     end
 end
@@ -224,7 +225,7 @@ for i=1:min(NEG_TRAIN_IMAGES, length(curAnnotations))
         %w*h * 4*9
         labelvalues = -1*ones(1,size(examples,1));
         
-        detector.imagenumberlabels = [detector.imagenumberlabels, i*ones(1,size(examples,1))];
+        detector.imagenumberlabels = [detector.imagenumberlabels curAnnotations(i).idIndex*ones(1,size(examples,1))];
         detector.gt = [detector.gt, labelvalues];
     end
 end
@@ -324,9 +325,11 @@ for i=1:VOCopts.rootfilterminingiters, %this is finding "Root Filter Initializat
     fprintf('number of errors %d vs. number of examples %d', ...
         empiricalerrors,length(scores));
 
+%    disp 'latent update'
+    
     %Mine hard examples
-    [savedfeatures, savedgt, savedimagelabel] = extractHardExamples(VOCopts, detector, ...
-        newexamples, newgt, newimagenumbers);
+%    [savedfeatures, savedgt, savedimagelabel] = extractHardExamples(VOCopts, detector, ...
+%        newexamples, newgt, newimagenumbers);
 end
 
 disp 'training latently'
@@ -337,14 +340,40 @@ for i=1:VOCopts.rootfilterupdateiters,%this step is "Root Filter Update"
     tic;
     [newexamples] = findNewPositives(VOCopts, cls, newgt, newexamples, newimagenumbers,detector);
     toc
-    [newdetector, savedfeatures, savedgt, savedimagelabel] = extractHardExamples(newexamples, newgt,newimagenumbers);
+    [savedfeatures, savedgt, savedimagelabel] = extractHardExamples(newexamples, newgt,newimagenumbers);
     %detector = detectorTrain(newgt, newexamples);
 end
 
+%Get part filters
 tic;
 [partFilters partBBoxes] = initializePartsFromRoot(VOCopts, detector.w);
 toc
 
+biasScore = detector.w(end);
+detector.w = detector.w(1:(end-1));
+%Append partFilters to detector.
+for i=1:size(partFilters,2)
+    detector.w((end+1):(end+numel(partFilters(:,i)))) = reshape(partFilters(:,i), [1 numel(partFilters(:,i))]);
+end
+%append relative dist scores to vector
+for i=1:VOCopts.numparts
+    detector.w((end+1):(end+4)) = [0 0 -1 -1];
+end
+detector.w(end+1) = biasScore;
+
+disp 'Training parts latently'
+for i=1:VOCopts.partfilterupdateiters
+%     [newexamples, newgt,newimagenumbers,labels] = ...
+%        fillexamples(VOCopts, cls, savedfeatures, savedgt, savedimagelabel,labels);
+         fprintf('Training latently iteration %d with this many examples %d\n', i, length(newgt));
+    tic;
+    [newexamples] = findNewPositivesWithParts(VOCopts, cls, newgt, newimagenumbers,detector, partBBoxes);
+    toc
+    %[savedfeatures, savedgt, savedimagelabel] = extractHardExamples(newexamples, newgt,newimagenumbers);
+    binaryizegt = 2*((newgt>0)-.5);
+    detector = detectorTrain(binaryizegt,newexamples);
+end
+    
 try
     save('detector.mat','detector');
 catch
@@ -459,7 +488,7 @@ BB = [];
 bbox = [1; 1; size(I,2); size(I,1)];
 %[c, BB, ~] = findBestNegativeExample(VOCopts, fd, detector, [],bbox,VOCopts.rootsamplestesting);
 
-for pyramidIndex=1:length(fd)
+for pyramidIndex=(1+VOCopts.partstorootindexdiff):length(fd)
     currlevel = fd{pyramidIndex};
     xdim = size(currlevel,1);
     ydim = size(currlevel,2);

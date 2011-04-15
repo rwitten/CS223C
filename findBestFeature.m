@@ -57,7 +57,7 @@ bby2 = bbox(4);
 bbwidth = bbx2 - bbx1;
 bbheight = bby2 - bby1;
 
-for curScaleIndex = 1:length(fd)
+for curScaleIndex = (1+VOCopts.partstorootindexdiff):length(fd)
     for curx1 = max(1,bbx1 - round(min(curWidth, bbwidth)/2)):8:bbx2-round(min(bbwidth,curWidth)/2)
         curx2 = curx1 + round(curWidth);
         for cury1 = max(1,bby1 - round(min(bbheight, curHeight)/2)):8:bby2-round(min(bbheight,curHeight)/2); 

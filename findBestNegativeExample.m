@@ -22,7 +22,7 @@ bbwidth = bbx2 - bbx1;
 bbheight = bby2 - bby1;
 
 for i=1:numsamples
-    curScaleIndex = randsample(length(fd),1);
+    curScaleIndex = randsample(length(fd)-VOCopts.partstorootindexdiff,1) + VOCopts.partstorootindexdiff;
     curHeight = height * (1/VOCopts.pyramidscale)^(curScaleIndex-1);
     curWidth = width * (1/VOCopts.pyramidscale)^(curScaleIndex-1);
     xlower = max(1,bbx1 - round(min(curWidth, bbwidth)/2));
