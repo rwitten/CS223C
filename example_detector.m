@@ -13,11 +13,11 @@ VOCopts.firstdim = 10;
 VOCopts.seconddim=6;
 VOCopts.rootfilterminingiters=1;
 VOCopts.rootfilterupdateiters=0;
-VOCopts.partfilterupdateiters=2;
-VOCopts.NEG_TRAIN_IMAGES=10;
-VOCopts.POS_TRAIN_IMAGES=10;
-VOCopts.MAX_NEG_EXAMPLES=10;  %this is the size of cache in terms of number of images
-VOCopts.MAX_POS_EXAMPLES=10;
+VOCopts.partfilterupdateiters=5;
+VOCopts.NEG_TRAIN_IMAGES=200;
+VOCopts.POS_TRAIN_IMAGES=200;
+VOCopts.MAX_NEG_EXAMPLES=50;  %this is the size of cache in terms of number of images
+VOCopts.MAX_POS_EXAMPLES=50;
 VOCopts.HARDNESS_CUTOFF=-0.2; %all neg examples with scores greater than this are kept
 VOCopts.pyramidscale = 1/(2^(1/5));
 VOCopts.partstorootindexdiff = 5;
@@ -26,7 +26,7 @@ VOCopts.rootsamples = 30;
 VOCopts.partfirstdim = 6;
 VOCopts.partseconddim = 5;
 VOCopts.numparts = 6;
-VOCopts.TEST_IMAGES = 10;
+VOCopts.TEST_IMAGES = 100;
 %VOCopts.firstdim = 32; %empirical average!
 %VOCopts.seconddim=22; %empirical average!
 % train and test detector for each class
@@ -80,13 +80,14 @@ negAnnotations = negAnnotations(2:end);
 VOCopts.posAnnotations = posAnnotations;
 VOCopts.negAnnotations = negAnnotations;
 
+
 detector= traina(VOCopts,cls);                            % train detector
 fprintf('\n\n\n\n')
 fprintf('*************************************\n')
 fprintf('         Entering Testing            \n')
 fprintf('*************************************\n')
-test(VOCopts,cls,detector);                             % test detector
-[recall,prec,ap]=VOCevaldet(VOCopts,'comp3',cls,true);  % compute and display PR #which means precision recall
+%test(VOCopts,cls,detector);                             % test detector
+%[recall,prec,ap]=VOCevaldet(VOCopts,'comp3',cls,true);  % compute and display PR #which means precision recall
 drawnow;
 end
 
@@ -128,6 +129,7 @@ for i=1:min(POS_TRAIN_IMAGES, length(curAnnotations))
     %detector.FD = [detector.FD;extractExample(VOCopts, a{1},fd )];
     
     [examples bbIndices] = extractExample(VOCopts, a{1},fd, imread(sprintf(VOCopts.imgpath,id{:})));
+    flipMult = ones(length(bbIndices), 1);
     if (size(examples,1) > 0)
         %Add flip of examples
         flipExamples = reshape(examples, [size(examples,1) VOCopts.firstdim VOCopts.seconddim VOCopts.blocksize^2*VOCopts.numgradientdirections]);
@@ -147,9 +149,10 @@ for i=1:min(POS_TRAIN_IMAGES, length(curAnnotations))
         %one example for each bounding box,
         %should be a vector of size
         %w*h * 4*9
-        labelvalues = bbIndices;      
+        labelvalues = bbIndices;
+        flipMult = [flipMult; -1*flipMult];
         
-        detector.imagenumberlabels = [detector.imagenumberlabels curAnnotations(i).idIndex*ones(1,size(examples,1))];
+        detector.imagenumberlabels = [detector.imagenumberlabels (flipMult').*(curAnnotations(i).idIndex*ones(1,size(examples,1)))];
         detector.gt = [detector.gt, labelvalues];
     end
 end
@@ -202,8 +205,8 @@ for i=1:min(NEG_TRAIN_IMAGES, length(curAnnotations))
     a= detector.bbox(end);
     
     %detector.FD = [detector.FD;extractExample(VOCopts, a{1},fd )];
-    
     [examples bbIndices] = extractExample(VOCopts, a{1},fd, imread(sprintf(VOCopts.imgpath,id{:})));
+    flipMult = ones(size(examples,1), 1);
     if (size(examples,1) > 0)
         %Add flip of examples
         flipExamples = reshape(examples, [size(examples,1) VOCopts.firstdim VOCopts.seconddim VOCopts.blocksize^2*VOCopts.numgradientdirections]);
@@ -225,7 +228,8 @@ for i=1:min(NEG_TRAIN_IMAGES, length(curAnnotations))
         %w*h * 4*9
         labelvalues = -1*ones(1,size(examples,1));
         
-        detector.imagenumberlabels = [detector.imagenumberlabels curAnnotations(i).idIndex*ones(1,size(examples,1))];
+        flipMult = [flipMult; -1*flipMult];
+        detector.imagenumberlabels = [detector.imagenumberlabels (flipMult').*(curAnnotations(i).idIndex*ones(1,size(examples,1)))];
         detector.gt = [detector.gt, labelvalues];
     end
 end
@@ -236,10 +240,16 @@ newimagenumberlabels=detector.imagenumberlabels;
 end
 
 %Fill examples to get a full set for training
-function [newexamples, newgt,newimagenumberlabels,labels] = fillexamples(VOCopts,cls, ...
-    originalexamples, originalgt, originalimagenumbers,labels)
+function [newexamples, newgt,newimagenumberlabels, posexamples, posgt, posimagenumberlabels, labels] = fillexamples(VOCopts,cls, ...
+    originalexamples, originalgt, originalimagenumbers, oldposexamples, oldposgt, oldposimagenumberlabels, labels)
 
-[posexamples, posgt, posimagenumberlabels, labels] = fillPosExamples(VOCopts,cls,labels);
+if (numel(oldposgt) < 1) 
+    [posexamples, posgt, posimagenumberlabels, labels] = fillPosExamples(VOCopts,cls,labels);
+else
+    posexamples = oldposexamples;
+    posgt = oldposgt;
+    posimagenumberlabels = oldposimagenumberlabels;
+end
 [negexamples, neggt, negimagenumberlabels, labels] = fillNegExamples(VOCopts,cls, ...
     originalexamples, originalgt, originalimagenumbers,labels);
 
@@ -299,8 +309,8 @@ savedimagelabel=[];
 
 for i=1:VOCopts.rootfilterminingiters, %this is finding "Root Filter Initialization"
     fprintf('we are on iteration %d\n', i);
-    [newexamples, newgt,newimagenumbers,labels] = ...
-        fillexamples(VOCopts, cls, savedfeatures, savedgt, savedimagelabel,labels);
+    [newexamples, newgt,newimagenumbers, posexamples, posgt, posimagenumbers, labels] = ...
+        fillexamples(VOCopts, cls, savedfeatures, savedgt, savedimagelabel, [], [], [],labels);
     %sanitycheck(labels, newexamples,newgt);
     fprintf('number of examples to train on: %d\n',length(newgt));
     
@@ -335,13 +345,13 @@ end
 disp 'training latently'
 for i=1:VOCopts.rootfilterupdateiters,%this step is "Root Filter Update"
     [newexamples, newgt,newimagenumbers,labels] = ...
-        fillexamples(VOCopts, cls, savedfeatures, savedgt, savedimagelabel,labels);
+        fillexamples(VOCopts, cls, savedfeatures, savedgt, savedimagelabel, posexamples, posgt, posimagenumbers, labels);
     fprintf('Training latently iteration %d with this many examples %d\n', i, length(newgt));
     tic;
     [newexamples] = findNewPositives(VOCopts, cls, newgt, newexamples, newimagenumbers,detector);
     toc
-    [savedfeatures, savedgt, savedimagelabel] = extractHardExamples(newexamples, newgt,newimagenumbers);
-    %detector = detectorTrain(newgt, newexamples);
+    detector = detectorTrain(newgt, newexamples);
+    [savedfeatures, savedgt, savedimagelabel] = extractHardExamples(VOCopts, detector, newexamples, newgt,newimagenumbers);
 end
 
 %Get part filters
@@ -363,15 +373,17 @@ detector.w(end+1) = biasScore;
 
 disp 'Training parts latently'
 for i=1:VOCopts.partfilterupdateiters
-%     [newexamples, newgt,newimagenumbers,labels] = ...
-%        fillexamples(VOCopts, cls, savedfeatures, savedgt, savedimagelabel,labels);
-         fprintf('Training latently iteration %d with this many examples %d\n', i, length(newgt));
+     if (i > 1)
+         [newexamples, newgt,newimagenumbers,labels] = ...
+            fillexamples(VOCopts, cls, savedfeatures, savedgt, savedimagelabel, posexamples, posgt, posimagenumbers, labels);
+     end
+    fprintf('Training latently iteration %d with this many examples %d\n', i, length(newgt));
     tic;
-    [newexamples] = findNewPositivesWithParts(VOCopts, cls, newgt, newimagenumbers,detector, partBBoxes);
+    [newexamples newgt newimagenumbers] = findNewPositivesWithParts(VOCopts, cls, newgt, newimagenumbers, detector, partBBoxes);
     toc
-    %[savedfeatures, savedgt, savedimagelabel] = extractHardExamples(newexamples, newgt,newimagenumbers);
     binaryizegt = 2*((newgt>0)-.5);
     detector = detectorTrain(binaryizegt,newexamples);
+    %[savedfeatures, savedgt, savedimagelabel] = extractHardExamples(VOCopts, detector, newexamples, newgt,newimagenumbers);
 end
     
 try
@@ -380,14 +392,15 @@ catch
     disp 'Sorry, couldnt save detector'
 end
 
-[detector]=finaltest(VOCopts, cls, labels, detector);
+[out]=test(VOCopts, cls, detector, partBBoxes);
 end
 
 
 function [detector] = finaltest(VOCopts, cls, labels, detector)
 disp 'final showdown'
 
-[newtestexamples, newtestgt] = fillexamples(VOCopts, cls, [], [], [],labels);
+[newtestexamples, newtestgt,~, ~, ~, ~, labels] = ...
+        fillexamples(VOCopts, cls, [], [], [], [], [], [],labels);
 
 binaryizegt = newtestgt>0;
 disp 'testing detector'
@@ -420,59 +433,41 @@ fprintf('this really should be zero %d\n', incorrectpredictions);
 end
 % run detector on test images
 %TEST_IMAGES=length(ids);
-function out = test(VOCopts,cls,detector)
+function out = test(VOCopts,cls,detector, pbboxes)
 % load test set ('val' for development kit)
-[ids,gt]=textread(sprintf(VOCopts.imgsetpath,VOCopts.testset),'%s %d');
+ids=textread(sprintf(VOCopts.imgsetpath,VOCopts.testset),'%s');
 
 TEST_IMAGES=VOCopts.TEST_IMAGES;
 %TEST_IMAGES=length(ids);
 
 fprintf('number of images we could hope to use %d \n', length(ids));
 
-
-
-% create results file
-fid=fopen(sprintf(VOCopts.detrespath,'comp3',cls),'w');
-
-% apply detector to each image
-tic;
-%for i=1:length(ids)
-for i=1:TEST_IMAGES,
-    % display progress
-    if toc>1
-        fprintf('%s: test: %d/%d\n',cls,i,TEST_IMAGES);
-        drawnow;
-        tic;
-    end
+perm = randperm(length(ids));
+ids = ids(perm);
+for i=1:length(ids)
+    rec=PASreadrecord(sprintf(VOCopts.annopath,ids{i}));
+    classes = {rec.objects(:).class};
+    clsinds=strmatch(cls,classes,'exact');
     
-    try
-        % try to load features
-        load(sprintf(VOCopts.exfdpath,ids{i}),'fd');
-    catch
-        disp 'failed to load features'
-        % compute and save features
-        I=imread(sprintf(VOCopts.imgpath,ids{i}));
-        fd=extractfd(VOCopts,I);
-        try
-            save(sprintf(VOCopts.exfdpath,ids{i}),'fd');
-        catch
-            
-        end
-    end
-    
-    % compute confidence of positive classification and bounding boxes
-    I = imread(sprintf(VOCopts.imgpath,ids{i}));
-   
-    [c,BB]= detect(VOCopts,detector,fd,I,i);
-    
-    % write to results file
-    for j=1:length(c)
-        fprintf(fid,'%s %f %d %d %d %d\n',ids{i},c(j),BB(:,j));
+    % assign ground truth class to image
+    if isempty(clsinds)
+        gt(i) = -1;
+    else
+        gt(i) = 1;
     end
 end
 
-% close results file
-fclose(fid);
+
+ids = ids(1:min(end, TEST_IMAGES));
+gt = squeeze(gt(1:min(end, TEST_IMAGES)));
+perm = perm(1:min(end, TEST_IMAGES));
+
+newtestexamples = detectBestFeatues(VOCopts, cls, gt, perm, detector, pbboxes);
+[predicted_label_test, accuracy] ...
+    = liblinearpredict(gt',sparse(newtestexamples),detector);
+accuracy
+
+out = 5;
 
 end
 

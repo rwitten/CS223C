@@ -1,5 +1,4 @@
 function [detector] = detectorTrain(gt, examples)
-
 binarygt = 2*((gt>0)-.5);
 detector = liblineartrain(binarygt', sparse(examples), '-s 2 -B 1 -q');
 

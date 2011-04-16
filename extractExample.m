@@ -10,7 +10,7 @@ if size(boundingbox,1)<1,
     centers = [];
     pyramidIndices = [];
     bbIndices = [];
-    for i=1:ceil(2+3*rand)
+    for i=1:1
       newPyramidIndex = floor(rand()*length(features) + 1);
       scale = VOCopts.pyramidscale ^ (newPyramidIndex-1);
       scaleWidth = VOCopts.cellsize*VOCopts.seconddim/scale;
