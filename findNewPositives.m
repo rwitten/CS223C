@@ -1,31 +1,41 @@
-function [newexamples] = findNewPositives(VOCopts, cls, newgt, newexamples, newimagenumbers,newdetector)
+function [newexamples newgt newimagenumbers] = findNewPositives(VOCopts, cls, newgt, newexamples, newimagenumbers, newdetector)
 
 % load 'train' image set
 ids=textread(sprintf(VOCopts.imgsetpath,'train'),'%s');
 
-for i=1:length(newgt),
-    image = ids{newimagenumbers(i)};
-    
+rootFilter = reshape(newdetector.w(1:end-1), [VOCopts.firstdim VOCopts.seconddim VOCopts.blocksize^2*VOCopts.numgradientdirections]);
+rootFilter = rootFilter.*newdetector.multiplier;
 
+
+outgt = [];
+outimagenumbers = [];
+outNum = 1;
+for i=1:length(newgt),
+    if (newimagenumbers(i) < 0) 
+        continue;
+    end
+    image = ids{newimagenumbers(i)};
     fd = getFeatures(VOCopts,image);
-    if newgt(i)>0
+    tic
+    if newgt(i) > 0
         rec=PASreadrecord(sprintf(VOCopts.annopath,image));
         clsinds=strmatch(cls,{rec.objects(:).class},'exact');
         diff=[rec.objects(clsinds).difficult];
         bbox=cat(1,rec.objects(clsinds(~diff)).bbox)';
-        %curNewExample=findBestFeature(VOCopts, fd, newdetector, ...
-        %    newexamples(i,:),bbox(:,newgt(i)));%, imread(sprintf(VOCopts.imgpath,image)));
-        curNewExample = newexamples(i,:);
+        [curNewExample flipExample]=findBestFeature(VOCopts, fd, rootFilter, bbox(:,newgt(i)));
     else
-        I = imread(sprintf(VOCopts.imgpath,image));
-        bbox = [1; 1; size(I,2); size(I,1)];
-        [~,~,curNewExample]=findBestNegativeExample(VOCopts, fd, newdetector, ...
-            newexamples(i,:),bbox, VOCopts.rootsampleslatesttraining);
-         
+        [~,curNewExample, flipExample]=findBestNegativeExample(VOCopts, fd,rootFilter);
     end
-    if (size(curNewExample,1) > 0) newexamples(i,:) = curNewExample;
-    end
+    disp 'Image evaluation time'
+    toc
+    outimagenumbers([outNum outNum+1]) = newimagenumbers(i) * [1; -1];
+    outgt([outNum outNum+1]) = [newgt(i); newgt(i)];
+    newexamples([outNum outNum+1],:) = [curNewExample; flipExample];
+    outNum = outNum+2;
 end
+
+outgt = squeeze(outgt);
+outimagenumbers = squeeze(outimagenumbers);
 
 %function [example] = findBest(VOCopts, fd,detector,)
 
