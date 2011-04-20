@@ -101,8 +101,8 @@ bestFeature = reshape(rootFeature, [1 numel(rootFeature)]);
 newpbboxes = zeros(size(pbboxes));
 flipFeature = reshape(rootFeature(:,end:-1:1,:), [1 numel(rootFeature)]);
 for i=1:VOCopts.numparts
-    curPartWidth = pbboxes(3,i) - pbboxes(1,i) + 1;
-    curPartHeight = pbboxes(4,i) - pbboxes(2,i) + 1;
+    curPartWidth = round(pbboxes(3,i) - pbboxes(1,i) + 1);
+    curPartHeight = round(pbboxes(4,i) - pbboxes(2,i) + 1);
     partHog = padarray(fd{bestRootIndex-VOCopts.partstorootindexdiff}, [curPartHeight-1, curPartWidth-1, 0]);
     partFeature = partHog((bestPartLocs(2,i):(bestPartLocs(2,i)+curPartHeight-1)) + curPartHeight-1, ...
         (bestPartLocs(1,i):(bestPartLocs(1,i) + curPartWidth - 1)) + curPartWidth-1,:);

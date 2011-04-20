@@ -42,24 +42,23 @@ for x = 1:floor(size(Im,1)/cellsize)
 end
 
 %Normalize cells by block into features
-hog = zeros(size(cellGrid,1)-2*(blocksize-1), size(cellGrid,2)-2*(blocksize-1), numgradientdirections*blocksize*blocksize);
-for x = blocksize:size(cellGrid,1)-(blocksize-1)
-    for y = blocksize:size(cellGrid,2)-(blocksize-1)
-        curVec = zeros(blocksize*blocksize*numgradientdirections,1);
-        for i=1:blocksize
-            for j = 1:blocksize
-                curBlock = cellGrid((x-i+1):(x+blocksize-i), (y-i+1):(y+blocksize-i), :);
-                curBlock = min(hognormclip, curBlock./sqrt(sum(sum(sum(curBlock.^2))) + eps^2));
-                curBlock = curBlock./sqrt(sum(sum(sum(curBlock.^2)))+eps^2);
-                curVec((blocksize*(i-1) + j-1)*numgradientdirections+(1:numgradientdirections)) = curBlock(i,j,:);
-            end
+hog = zeros((size(cellGrid,1)-2*(blocksize-1))*(size(cellGrid,2)-2*(blocksize-1)), numgradientdirections*blocksize*blocksize);
+parfor i = 1:(size(cellGrid,1)-2*(blocksize-1))*(size(cellGrid,2)-2*(blocksize-1))
+    [y x] = ind2sub([size(cellGrid,1) - 2*(blocksize-1), size(cellGrid,2) - 2*(blocksize-1)], i);
+    curVec = zeros(blocksize*blocksize*numgradientdirections,1);
+    for k=1:blocksize
+        for j = 1:blocksize
+            curBlock = cellGrid((y+blocksize-k):(y+2*blocksize-k - 1), (x + blocksize-j):(x+2*blocksize-j - 1), :);
+            curBlock = min(hognormclip, curBlock./sqrt(sum(sum(sum(curBlock.^2))) + eps^2));
+            curBlock = curBlock./sqrt(sum(sum(sum(curBlock.^2)))+eps^2);
+            curVec((blocksize*(k-1) + j-1)*numgradientdirections+(1:numgradientdirections)) = curBlock(k,j,:);
         end
-               
-        hog(x-(blocksize-1),y-(blocksize-1), :) = curVec;
     end
+
+    hog(i, :) = curVec;
 end
 
-H=hog;
+H=reshape(hog, [size(cellGrid,1) - 2*(blocksize-1), size(cellGrid,2) - 2*(blocksize-1), size(hog,2)]);
 
 function vector= bucketize(angles, yblock, xblock, numgradientdirections)
 vector = zeros(numgradientdirections,1);

@@ -13,11 +13,11 @@ VOCopts.firstdim = 10;
 VOCopts.seconddim=6;
 VOCopts.rootfilterminingiters=2;
 VOCopts.rootfilterupdateiters=3;
-VOCopts.partfilterupdateiters=4;
+VOCopts.partfilterupdateiters=3;
 VOCopts.NEG_TRAIN_IMAGES=200;
 VOCopts.POS_TRAIN_IMAGES=200;
-VOCopts.MAX_NEG_EXAMPLES=300;  %this is the size of cache in terms of number of images
-VOCopts.MAX_POS_EXAMPLES=300;
+VOCopts.MAX_NEG_EXAMPLES=400;  %this is the size of cache in terms of number of images
+VOCopts.MAX_POS_EXAMPLES=400;
 VOCopts.HARDNESS_CUTOFF=-0.2; %all neg examples with scores greater than this are kept
 VOCopts.pyramidscale = 1/(2^(1/5));
 VOCopts.partstorootindexdiff = 5;
@@ -26,7 +26,7 @@ VOCopts.rootsamples = 30;
 VOCopts.partfirstdim = 6;
 VOCopts.partseconddim = 5;
 VOCopts.numparts = 6;
-VOCopts.TEST_IMAGES = 1;
+VOCopts.TEST_IMAGES = 150;
 VOCopts.rootskip = 1;
 VOCopts.partskip = 1;
 %VOCopts.firstdim = 32; %empirical average!
@@ -83,6 +83,7 @@ VOCopts.posAnnotations = posAnnotations;
 VOCopts.negAnnotations = negAnnotations;
 
 
+
 detector= traina(VOCopts,cls);                            % train detector
 fprintf('\n\n\n\n')
 fprintf('*************************************\n')
@@ -104,7 +105,7 @@ detector.imagenumberlabels = [];
 examples = [];
 bbIndices = [];
 
-detector.FD = NaN * ones(POS_TRAIN_IMAGES*10,4*VOCopts.numgradientdirections*VOCopts.firstdim* ...
+detector.FD = NaN * ones(VOCopts.MAX_POS_EXAMPLES+10,4*VOCopts.numgradientdirections*VOCopts.firstdim* ...
     VOCopts.seconddim);
 
 curAnnotations = VOCopts.posAnnotations(randperm(length(VOCopts.posAnnotations)));
@@ -176,8 +177,8 @@ detector.imagenumberlabels = [];
 examples = [];
 bbIndices = [];
 
-detector.FD = NaN * ones(NEG_TRAIN_IMAGES*10,4*VOCopts.numgradientdirections*VOCopts.firstdim* ...
-    VOCopts.seconddim);
+detector.FD = NaN * ones(VOCopts.MAX_NEG_EXAMPLES+10,VOCopts.blocksize^2*VOCopts.numgradientdirections*...
+    VOCopts.firstdim*VOCopts.seconddim);
 
 if length(originalgt)>0,
     detector.imagenumberlabels=originalimagenumbers;
@@ -349,6 +350,11 @@ for i=1:VOCopts.rootfilterupdateiters,%this step is "Root Filter Update"
         findNewPositives(VOCopts, cls, newgt, newexamples, newimagenumbers, detector);
 
     detector = detectorTrain(newgt, newexamples);
+    try
+        save('detector.mat','detector');
+    catch
+        disp 'Sorry, couldnt save detector'
+    end
     [savedfeatures, savedgt, savedimagelabel] = extractHardExamples(VOCopts, detector, newexamples, newgt,newimagenumbers);
 end
 
@@ -368,6 +374,11 @@ for i=1:VOCopts.numparts
     detector.w((end+1):(end+4)) = [0 0 -1 -1];
 end
 detector.w(end+1) = biasScore;
+ try
+    save('detector.mat','detector');
+catch
+    disp 'Sorry, couldnt save detector'
+end
 
 disp 'Training parts latently'
 for i=1:VOCopts.partfilterupdateiters
@@ -379,16 +390,16 @@ for i=1:VOCopts.partfilterupdateiters
     toc
     binaryizegt = 2*((newgt>0)-.5);
     detector = detectorTrain(binaryizegt,newexamples);
+    try
+        save('detector.mat','detector');
+    catch
+        disp 'Sorry, couldnt save detector'
+    end
     [savedfeatures, savedgt, savedimagelabel] = extractHardExamples(VOCopts, detector, newexamples, newgt,newimagenumbers);
 end
 
 rootFilterDetector = detectorTrain(binaryizegt, newexamples(:,1:VOCopts.firstdim*VOCopts.seconddim*VOCopts.blocksize^2*VOCopts.numgradientdirections));
     
-try
-    save('detector.mat','detector');
-catch
-    disp 'Sorry, couldnt save detector'
-end
 
 [out]=test(VOCopts, cls, detector, rootFilterDetector, partBBoxes);
 end
@@ -469,7 +480,7 @@ newtestexamples = detectBestFeatues(VOCopts, cls, gt, perm, detector, pbboxes);
     = liblinearpredict(gt',sparse(newtestexamples),detector);
 
 [predicted_label_test_root, accuracy] ...
-    = liblinearpredict(gt',sparse(newexamples(:,1:VOCopts.firstdim*VOCopts.seconddim*VOCopts.blocksize^2*VOCopts.numgradientdirections)), rootDetector);
+    = liblinearpredict(gt',sparse(newtestexamples(:,1:VOCopts.firstdim*VOCopts.seconddim*VOCopts.blocksize^2*VOCopts.numgradientdirections)), rootDetector);
     
 accuracy
 
