@@ -43,6 +43,9 @@ for h = 1 : im_height
      end
 end
 
+mu = zeros(2,params.K,params.numColors);
+sigma = zeros(2,params.K,params.numColors, params.numColors);
+
 % grabcut algorithm
 disp('grabcut algorithm');
 
