@@ -42,7 +42,7 @@ for h = 1 : im_height
      end
 end
 
-alpha = zeros(2, im_height*im_width);
+alpha = repmat(trimap==3, numel(trimap));
 mu = rand(2,params.K,params.numColors);
 sigma = makePositiveSemiD(2,params.K, params.numColors);
 pi = zeros(2, params.K);
