@@ -32,6 +32,7 @@ end
 
 
 alpha = zeros(im_height,im_width);
+
 for h = 1 : im_height
      for w = 1 : im_width
          if (w > xmin) && (w < xmax) && (h > ymin) && (h < ymax)
@@ -42,8 +43,9 @@ for h = 1 : im_height
      end
 end
 
-mu = zeros(2,params.K,params.numColors);
-sigma = zeros(2,params.K,params.numColors, params.numColors);
+mu = rand(2,params.K,params.numColors);
+%sigma = rand(2,params.K,params.numColors, params.numColors);
+sigma = makePositiveSemiD(2,params.K, params.numColors);
 
 % grabcut algorithm
 disp('grabcut algorithm');

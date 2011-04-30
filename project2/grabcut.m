@@ -43,16 +43,17 @@ for h = 1 : im_height
      end
 end
 
-mu = zeros(2,params.K,params.numColors);
-sigma = zeros(2,params.K,params.numColors, params.numColors);
+mu = rand(2,params.K,params.numColors);
+sigma = makePositiveSemiD(2,params.K, params.numColors);
+pi = zeros(2, params.K);
 
 % grabcut algorithm
 disp('grabcut algorithm');
 
 while true %bs stopping criteria
     %k = updateClusterChoices(params,alpha, im_data);
-    %mu, sigma = updateClusterParameters(params, alpha, im_data,k);
-    %alpha = updateBackgroundForegroundChoices(params, alpha,im_data, mu, sigma,xmin, xmax, ymin, ymax);
+    %mu, sigma,pi = updateClusterParameters(params, alpha, im_data,k);
+    %alpha = updateBackgroundForegroundChoices(params, alpha,im_data, mu, sigma,pi,xmin, xmax, ymin, ymax);
     %if converged
     %    break
     %end
