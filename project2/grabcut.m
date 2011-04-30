@@ -1,13 +1,13 @@
 function grabcut(im_name)
 
-params.K = 2;
+params.K = 5;
 params.numColors = 3;
 
 
 % % convert the pixel values to [0,1] for each R G B channel.
 im_data = double(imread(im_name)) / 255;
 
-im_data = im_data(1:100,1:100,:);
+%im_data = im_data(1:100,1:100,:);
 % % display the image
 % imagesc(im_data);
 % 
@@ -20,6 +20,7 @@ im_data = im_data(1:100,1:100,:);
 % xmin=min(p(:,1));xmax=max(p(:,1));
 % ymin=min(p(:,2));ymax=max(p(:,2));
  [im_height, im_width, channel_num] = size(im_data);
+ params.numPixels= im_height * im_width;
 % xmin = max(xmin, 1);
 % xmax = min(im_width, xmax);
 % ymin = max(ymin, 1);
@@ -43,9 +44,9 @@ alpha = zeros(im_height,im_width);
 for h = 1 : im_height
      for w = 1 : im_width
          if (w > xmin) && (w < xmax) && (h > ymin) && (h < ymax)
-             alpha(h,w) = 2; %this means that its T_U or the initial foreground
+             alpha(h,w) = 2; %2 means that its T_U or the initial foreground
          else
-             alpha(h,w) = 1; %this means its in T_B or the initial background
+             alpha(h,w) = 1; %1 means its in T_B or the initial background
          end
      end
 end
@@ -55,18 +56,27 @@ sigma = makePositiveSemiD(2,params.K, params.numColors);
 pi = zeros(2, params.K);
 
 % grabcut algorithm
-disp('grabcut algorithm');
+fprintf('*************************\n');
+fprintf('****grabcut algorithm****\n');
+fprintf('*************************\n\n\n\n');
+
+
 
 
 for iter=1:10%bs stopping criteria
-    tic;
     fprintf('we are on iteration %d\n', iter);
-    k = updateClusterChoices(params,alpha, im_data, mu, sigma);
-    %mu, sigma,pi = updateClusterParameters(params, alpha, im_data,k);
+    
+    fprintf('we are updating the cluster choices\n');
+    [ fgcluster,fg,bgcluster,bg ] = updateClusterChoices(params,alpha, im_data,...
+        mu, sigma);
+    
+    fprintf('we are updating the cluster parameters\n');
+    [mu, sigma,pi] = updateClusterParameters(params, im_data,fgcluster,fg,bgcluster,bg);
+    
+    fprintf('\n\n\n\n');
     %alpha = updateBackgroundForegroundChoices(params, alpha,im_data, mu, sigma,pi,xmin, xmax, ymin, ymax);
     %if converged
     %    break
     %end
-    toc
 end
 
