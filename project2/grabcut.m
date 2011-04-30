@@ -30,19 +30,19 @@ if channel_num ~= 3
     return;
 end
 
-
-alpha = zeros(im_height,im_width);
+trimap = zeros(im_height,im_width);
 
 for h = 1 : im_height
      for w = 1 : im_width
          if (w > xmin) && (w < xmax) && (h > ymin) && (h < ymax)
-             alpha(h,w) = 2; %this means that its T_U or the initial foreground
+             trimap(h,w) = 3; %this means that its T_U or the initial foreground
          else
-             alpha(h,w) = 1; %this means its in T_B or the initial background
+             trimap(h,w) = 1; %this means its in T_B or the initial background
          end
      end
 end
 
+alpha = zeros(2, im_height*im_width);
 mu = rand(2,params.K,params.numColors);
 sigma = makePositiveSemiD(2,params.K, params.numColors);
 pi = zeros(2, params.K);
@@ -53,7 +53,7 @@ disp('grabcut algorithm');
 while true %bs stopping criteria
     %k = updateClusterChoices(params,alpha, im_data);
     %mu, sigma,pi = updateClusterParameters(params, alpha, im_data,k);
-    %alpha = updateBackgroundForegroundChoices(params, alpha,im_data, mu, sigma,pi,xmin, xmax, ymin, ymax);
+    %alpha = updateBackgroundForegroundChoices(params, alpha,im_data, mu, sigma,pi);
     %if converged
     %    break
     %end
