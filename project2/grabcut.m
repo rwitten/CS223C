@@ -31,14 +31,14 @@ if channel_num ~= 3
 end
 
 
-alpha = zeros(im_height,im_width);
+alpha = zeros(im_height,im_width, 3);
 
 for h = 1 : im_height
      for w = 1 : im_width
          if (w > xmin) && (w < xmax) && (h > ymin) && (h < ymax)
-             alpha(h,w) = 2; %this means that its T_U or the initial foreground
+             alpha(h,w,2) = 1; %this means that its T_U or the initial foreground
          else
-             alpha(h,w) = 1; %this means its in T_B or the initial background
+             alpha(h,w,1) = 1; %this means its in T_B or the initial background
          end
      end
 end
