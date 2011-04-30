@@ -44,7 +44,7 @@ end
 
 alpha = repmat(trimap==3, numel(trimap));
 mu = rand(2,params.K,params.numColors);
-sigma = makePositiveSemiD(2,params.K, params.numColors);
+sigma = makePositiveSemiD(2,params.K, params.numColors, params.numColors);
 pi = zeros(2, params.K);
 
 % grabcut algorithm
@@ -53,7 +53,7 @@ disp('grabcut algorithm');
 while true %bs stopping criteria
     %k = updateClusterChoices(params,alpha, im_data);
     %mu, sigma,pi = updateClusterParameters(params, alpha, im_data,k);
-    %alpha = updateBackgroundForegroundChoices(params, alpha,im_data, mu, sigma,pi);
+    %alpha = updateBackgroundForegroundChoices(params, alpha,im_data, mu, sigma, pi);
     %if converged
     %    break
     %end

@@ -1,32 +1,79 @@
+/*==========================================================
+ * mexmaxflow.cpp - Configure maxflow for matlab
+ *
+ *
+ *========================================================*/
+/* $Revision: 1.5.4.4 $ */
+
 #include <stdio.h>
 #include "graph.h"
+#include <iostream>
+#include "mex.h"
 
-int main()
+using namespace std;
+
+extern void _main();
+
+void mexFunction(
+		 int          nlhs,
+		 mxArray      *plhs[],
+		 int          nrhs,
+		 const mxArray *prhs[]
+		 )
 {
-	typedef Graph<int,int,int> GraphType;
-	GraphType *g = new GraphType(/*estimated # of nodes*/ 2, /*estimated # of edges*/ 1); 
+  /* Check for proper number of arguments */
+  if (nrhs != 4) {
+    mexErrMsgIdAndTxt("MATLAB:mexmaxflow:nargin", 
+            "MEXCPP requires four input arguments.");
+  } else if (nlhs != 1) {
+    mexErrMsgIdAndTxt("MATLAB:mexmaxflow:nargout",
+            "MEXCPP requires one output argument.");
+  }
 
-	g -> add_node(); 
-	g -> add_node(); 
+  //parse out arguments
 
-	g -> add_tweights( 0,   /* capacities */  1, 5 );
-	g -> add_tweights( 1,   /* capacities */  2, 6 );
-	g -> add_edge( 0, 1,    /* capacities */  3, 4 );
+  double *backWeights = (double *) mxGetPr(prhs[0]);
+  double *foreWeights = (double *) mxGetPr(prhs[1]);
+  double *smoothIndices = (double *) mxGetScalar(prhs[2]);
+  double *smoothWeights = (double *) mxGetPr(prhs[3]);
+  size_t numNodes = mxGetNumberOfElements(prhs[0]);
+  size_t numDirections = mxGetN(prhs[2]);
 
-	int flow = g -> maxflow();
+  //Error checking
+  if (numNodes != mxGetNumberOfElements(prhs[1]) mexErrMsgIdAndTxt("MATLAB:mexmaxflow:argin", "Weight arrays must be same length");
+  if (numNodes != mxGetM(prhs[2])) mexErrMsgIdAndTxt("MATLAB:mexmaxflow:argin", "Number of rows for edge matrix does not match number of nodes");
+  if (mxGetN(prhs[2]) != mxGetN(prhs[3]) || mxGetM(prhs[2]) != mxGetM(prhs[3])) mexErrMsgIdAndTxt("MATLAB:mexmaxflow:argin", "Edge weights matrix does not match edge indices matrix");
 
-	printf("Flow = %d\n", flow);
-	printf("Minimum cut:\n");
-	if (g->what_segment(0) == GraphType::SOURCE)
-		printf("node0 is in the SOURCE set\n");
-	else
-		printf("node0 is in the SINK set\n");
-	if (g->what_segment(1) == GraphType::SOURCE)
-		printf("node1 is in the SOURCE set\n");
-	else
-		printf("node1 is in the SINK set\n");
+  //Create and fill graph
+  typedef Graph<double, double, double> GraphType;
+  GraphType *g = new GraphType(numNodes,numNodes*numDirections);
+  g->add_nodes(numNodes);
 
-	delete g;
+  //Background is source, foreground is sink
+  for (size_t i=0: i<numNodes; i++)
+  {
+	g->add_tweights(i, backWeights[i], foreWeights[i]);
+	for (size_t j=0; j<numDirections; j++)
+	{
+		int edgeIndex = (int)(smoothIndices[numNodes*j + i]-1);
+		double edgeWeight = smoothWeights[numNodes*j + i];
+		if (edgeIndex < 0) break;
+		if (edgeIndex >= numNodes) mexErrMsgIdAndTxt("MATLAB:mexmaxflow:argin", "Illegal edge index");
+		if (edgeIndex >= i) continue;
+		g->add_edge(edgeIndex, i, edgeWeight, edgeWeight);
+	}
+  }
 
-	return 0;
+  //Calc flow
+  g->maxflow();
+
+  plhs[0] = mxCreateNumericMatrix(numNodes, 1, mxDOUBLE_CLASS, mxREAL);	
+  double* arrPtr = mxGetPr(plhs[0]);
+  //Set alpha
+  for (size_t i=0; i<numNodes; i++)
+  {
+	  arrPtr[i] = g->what_segment(i) == GraphType::SINK;
+  }
+
+  return;
 }
