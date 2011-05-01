@@ -1,12 +1,6 @@
 function grabcut(im_name)
 im_name='banana1.bmp';
 
-
-
-
-% % convert the pixel values to [0,1] for each R G B channel.
-im_data = double(imread(im_name)) / 255;
-
 %im_data = im_data(1:100,1:100,:);
 % % display the image
 % imagesc(im_data);
@@ -21,7 +15,10 @@ im_data = double(imread(im_name)) / 255;
 % ymin=min(p(:,2));ymax=max(p(:,2));
  [im_height, im_width, channel_num] = size(im_data);
 
-% xmin = max(xmin, 1);
+% % convert the pixel values to [0,1] for each R G B channel.
+im_data = reshape(double(imread(im_name)) / 255, [im_height*im_width 3]);
+ 
+ % xmin = max(xmin, 1);
 % xmax = min(im_width, xmax);
 % ymin = max(ymin, 1);
 % ymax = min(im_height, ymax);
@@ -42,27 +39,56 @@ end
 params.K = 5;
 params.numColors = channel_num;
 params.numPixels= im_height * im_width;
+params.height = im_height;
+params.width = im_width;
+params.numDirections = 8;
+params.lambda = 50;
 
+trimap = zeros(1,params.numPixels);
 
-trimap = zeros(im_height,im_width);
-
-for h = 1 : im_height
-     for w = 1 : im_width
-         if (w > xmin) && (w < xmax) && (h > ymin) && (h < ymax)
-             trimap(h,w) = 3; %this means that its T_U or the initial foreground
-             alpha(h,w) = 2; %2 means that its T_U or the initial foreground
-         else
-             alpha(h,w) = 1; %1 means its in T_B or the initial background
-             trimap(h,w) = 1; %this means its in T_B or the initial background
-         end
+for i = 1 : params.numPixels
+    [h w] = ind2sub([im_height im_width], i);
+     if (w > xmin) && (w < xmax) && (h > ymin) && (h < ymax)
+         trimap(i) = 3; %this means that its T_U or the initial foreground
+         %alpha(h,w) = 2; %2 means that its T_U or the initial foreground
+     else
+         %alpha(h,w) = 1; %1 means its in T_B or the initial background
+         trimap(i) = 1; %this means its in T_B or the initial background
      end
 end
 
-%alpha = repmat(trimap==3, numel(trimap));
+alpha = (trimap==3)+1;
 
 mu = rand(2,params.K,params.numColors);
-sigma = makePositiveSemiD(2,params.K, params.numColors);
+sigma = makePositiveSemiD(2,params.K, params.numColors, params.numColors);
 pi = zeros(2, params.K);
+
+
+%Precompute the smoothing indices and weights
+%Calculate beta
+form_im_data(1,:,:) = im_data;
+pixel_mat = repmat(form_im_data, [params.numPixels 1 1]);
+pixel_diff_sq = (pixel_mat - permute(pixel_mat, [2 1 3])).^2;
+beta = 1/(2*mean(mean(sum(pixel_diff_sq, 3))));
+smoothIndices = zeros(params.numPixels, params.numDirections);
+smoothWeights = zeros(params.numPixels, params.numDirections);
+for i = 1:params.numPixels
+   [y x] = ind2sub([params.height params.width], i);
+   curIndex = 1;
+   for dy = -1:1
+       for dx = -1:1
+           if (dx == 0 && dy == 0) continue;
+           end
+           if (x+dx < 1 || x+dx > params.width || y+dy < 1 || y+dy > params.height) continue;
+           end     
+           curPixelIndex = sub2ind([params.height params.width], y+dy, x+dx);
+           smoothIndices(i, curIndex) = curPixelIndex;
+           curPixelDiffSq = sum(squeeze(im_data(i,:) - im_data(curPixelIndex,:)).^2);
+           smoothWeights(i, curIndex) = params.lambda * exp(-1*beta*curPixelDiffSq);
+       end
+   end
+end
+
 
 % grabcut algorithm
 fprintf('*************************\n');
@@ -82,7 +108,7 @@ for iter=1:100%bs stopping criteria
     
     
     fprintf('\n\n\n\n');
-    %alpha = updateBackgroundForegroundChoices(params, alpha,im_data, mu, sigma,pi,xmin, xmax, ymin, ymax);
+    alpha = updateAlphaChoices(params, im_data, mu, sigma,pi, foreClusterIndices, backClusterIndices, smoothIndices, smoothWeights);
 end
 toc
 %drawClusters(fg,fgcluster);

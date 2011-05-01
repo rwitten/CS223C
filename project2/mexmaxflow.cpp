@@ -56,9 +56,9 @@ void mexFunction(
         mexPrintf("Value1 = %g\n", smoothIndices[numNodes*j + i]);
 		int edgeIndex = (int)(smoothIndices[numNodes*j + i]-1);
 		double edgeWeight = smoothWeights[numNodes*j + i];
-		if (edgeIndex < 0) break;
-		if (edgeIndex >= numNodes) mexErrMsgIdAndTxt("MATLAB:mexmaxflow:argin", "Illegal edge index");
-		if (edgeIndex >= i) continue;
+		if (edgeIndex < 0) continue;
+        else if (edgeIndex >= numNodes) mexErrMsgIdAndTxt("MATLAB:mexmaxflow:argin", "Illegal edge index");
+        else if (edgeIndex >= i) continue;
 		g->add_edge(edgeIndex, i, edgeWeight, edgeWeight);
 	}
   }
