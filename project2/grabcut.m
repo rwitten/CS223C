@@ -49,7 +49,7 @@ trimap = zeros(im_height,im_width);
 for h = 1 : im_height
      for w = 1 : im_width
          if (w > xmin) && (w < xmax) && (h > ymin) && (h < ymax)
-	     trimap(h,w) = 3; %this means that its T_U or the initial foreground
+             trimap(h,w) = 3; %this means that its T_U or the initial foreground
              alpha(h,w) = 2; %2 means that its T_U or the initial foreground
          else
              alpha(h,w) = 1; %1 means its in T_B or the initial background
@@ -69,6 +69,7 @@ fprintf('*************************\n');
 fprintf('****grabcut algorithm****\n');
 fprintf('*************************\n\n\n\n');
 
+tic;
 for iter=1:100%bs stopping criteria
     fprintf('we are on iteration %d\n', iter);
     
@@ -83,7 +84,7 @@ for iter=1:100%bs stopping criteria
     fprintf('\n\n\n\n');
     %alpha = updateBackgroundForegroundChoices(params, alpha,im_data, mu, sigma,pi,xmin, xmax, ymin, ymax);
 end
-
+toc
 %drawClusters(fg,fgcluster);
 
 
