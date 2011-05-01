@@ -1,7 +1,7 @@
 function grabcut(im_name)
+im_name='banana1.bmp';
 
-params.K = 5;
-params.numColors = 3;
+
 
 
 % % convert the pixel values to [0,1] for each R G B channel.
@@ -20,7 +20,7 @@ im_data = double(imread(im_name)) / 255;
 % xmin=min(p(:,1));xmax=max(p(:,1));
 % ymin=min(p(:,2));ymax=max(p(:,2));
  [im_height, im_width, channel_num] = size(im_data);
- params.numPixels= im_height * im_width;
+
 % xmin = max(xmin, 1);
 % xmax = min(im_width, xmax);
 % ymin = max(ymin, 1);
@@ -33,10 +33,16 @@ ymax = 421;
 
 bbox = [xmin ymin xmax ymax];
 %line(bbox([1 3 3 1 1]),bbox([2 2 4 4 2]),'Color',[1 0 0],'LineWidth',1);
+
 if channel_num ~= 3
     disp('This image does not have all the RGB channels, you do not need to work on it.');
     return;
 end
+
+params.K = 5;
+params.numColors = channel_num;
+params.numPixels= im_height * im_width;
+
 
 trimap = zeros(im_height,im_width);
 
@@ -52,9 +58,10 @@ for h = 1 : im_height
      end
 end
 
-alpha = repmat(trimap==3, numel(trimap));
+%alpha = repmat(trimap==3, numel(trimap));
+
 mu = rand(2,params.K,params.numColors);
-sigma = makePositiveSemiD(2,params.K, params.numColors, params.numColors);
+sigma = makePositiveSemiD(2,params.K, params.numColors);
 pi = zeros(2, params.K);
 
 % grabcut algorithm
@@ -62,7 +69,7 @@ fprintf('*************************\n');
 fprintf('****grabcut algorithm****\n');
 fprintf('*************************\n\n\n\n');
 
-for iter=1:10%bs stopping criteria
+for iter=1:100%bs stopping criteria
     fprintf('we are on iteration %d\n', iter);
     
     fprintf('we are updating the cluster choices\n');
@@ -72,6 +79,11 @@ for iter=1:10%bs stopping criteria
     fprintf('we are updating the cluster parameters\n');
     [mu, sigma,pi] = updateClusterParameters(params, im_data,fgcluster,fg,bgcluster,bg);
     
+    
     fprintf('\n\n\n\n');
     %alpha = updateBackgroundForegroundChoices(params, alpha,im_data, mu, sigma,pi,xmin, xmax, ymin, ymax);
 end
+
+%drawClusters(fg,fgcluster);
+
+
