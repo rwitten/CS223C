@@ -1,7 +1,7 @@
 function grabcut(im_name)
-im_name='fullmoon.bmp';
+im_name='memorial.jpg';
 
-im_data = imread('banana1.bmp');
+im_data = imread(im_name);
 %im_data = im_data(1:100,1:100,:);
 % % display the image
 % imagesc(im_data);
@@ -39,15 +39,19 @@ params.initIter = 4;
 % % convert the pixel values to [0,1] for each R G B channel.
 %true_im_data is for display
 true_im_data = double(im_data) / 255;
-im_data = true_im_data;
-% h = fspecial('unsharp');
-% sharpGray = imfilter(double(rgb2gray(true_im_data)), h, 'replicate');
-% normIm = squeeze(.30 * true_im_data(:,:,1) + .59*true_im_data(:,:,2) + .11*true_im_data(:,:,3));
-% for i=1:params.numColors;
-%     im_data(:,:,i) = true_im_data(:,:,i) .* sharpGray./normIm;%imfilter(true_im_data(:,:,i), h, 'replicate');
-% end
+back_im_data = true_im_data;
+fore_im_data = true_im_data;
+%Filter background image
+h = 1/9 * ones(3,3); %fspecial('unsharp');
+sharpGray = imfilter(double(rgb2gray(back_im_data)), h, 'replicate');
+normIm = squeeze(.30 * back_im_data(:,:,1) + .59*back_im_data(:,:,2) + .11*back_im_data(:,:,3));
+for i=1:params.numColors;
+    back_im_data(:,:,i) = back_im_data(:,:,i) .* sharpGray./normIm;%imfilter(true_im_data(:,:,i), h, 'replicate');
+end
 true_im_data = reshape(true_im_data, [im_height*im_width 3]);
-im_data = reshape(im_data,  [im_height*im_width 3]);
+back_im_data = reshape(back_im_data,  [im_height*im_width 3]);
+fore_im_data = reshape(fore_im_data,  [im_height*im_width 3]);
+edge_im_data = true_im_data; %Temporary, can use a different image for weighting edges
 
 
 %Create trimap, original alpha, and bounding box extractor array
@@ -64,8 +68,8 @@ params.unknownInd = alpha==2;
 %im_data(logical(~params.unknownInd))
 gmmOptions = statset(@gmdistribution);
 gmmOptions.MaxIter = params.initIter;
-backGMFit = gmdistribution.fit(im_data(params.unknownInd==0,:), params.K, 'Options', gmmOptions);
-foreGMFit = gmdistribution.fit(im_data(params.unknownInd==1,:), params.K, 'Options', gmmOptions);
+backGMFit = gmdistribution.fit(back_im_data(params.unknownInd==0,:), params.K, 'Options', gmmOptions);
+foreGMFit = gmdistribution.fit(fore_im_data(params.unknownInd==1,:), params.K, 'Options', gmmOptions);
 mu(1,:,:) = backGMFit.mu;
 mu(2,:,:) = foreGMFit.mu;
 sigma(1,:,:,:) = permute(backGMFit.Sigma, [3 1 2]);
@@ -80,7 +84,7 @@ tic
 indexMat = zeros(params.height, params.width, params.numDirections);
 weightsMat = zeros(params.height, params.width, params.numDirections);
 curDiffSq = zeros(params.height, params.width, params.numDirections);
-shapedImage = reshape(im_data, [params.height params.width params.numColors]);
+shapedImage = reshape(edge_im_data, [params.height params.width params.numColors]);
 padImage = padarray(shapedImage, [1 1 0]);
 indexImage = padarray(reshape(1:params.numPixels, [params.height params.width]), [1 1]);
 curIndex = 1;
@@ -106,7 +110,6 @@ clear indexImage
 clear curDiffSq
 toc
 
-
 % grabcut algorithm
 fprintf('*************************\n');
 fprintf('****grabcut algorithm****\n');
@@ -123,9 +126,16 @@ for iter=1:20%bs stopping criteria
 %     
 %     fprintf('we are updating the cluster parameters\n');
 %     [mu, sigma,pi] = updateClusterParameters(params, fgcluster,fg,bgcluster,bg);
-%     
-    backGMFit = gmdistribution.fit(im_data(alpha==1,:), params.K, 'Options', gmmOptions);
-    foreGMFit = gmdistribution.fit(im_data(alpha==2,:), params.K, 'Options', gmmOptions);
+%   
+    backStartStruct.mu = backGMFit.mu;
+    backStartStruct.Sigma = backGMFit.Sigma;
+    backStartStruct.PComponents = backGMFit.PComponents;
+    foreStartStruct.mu = foreGMFit.mu;
+    foreStartStruct.Sigma = foreGMFit.Sigma;
+    foreStartStruct.PComponents = foreGMFit.PComponents;
+    
+    backGMFit = gmdistribution.fit(back_im_data(alpha==1,:), params.K, 'Options', gmmOptions, 'Start', backStartStruct);
+    foreGMFit = gmdistribution.fit(fore_im_data(alpha==2,:), params.K, 'Options', gmmOptions, 'Start', foreStartStruct);
     mu(1,:,:) = backGMFit.mu;
     mu(2,:,:) = foreGMFit.mu;
     sigma(1,:,:,:) = permute(backGMFit.Sigma, [3 1 2]);
@@ -138,12 +148,12 @@ for iter=1:20%bs stopping criteria
 %     bgallclusters=assigncluster(params, im_data, squeeze(mu(1,:,:)), squeeze(sigma(1,:,:,:)), squeeze(pi(1,:)));
 %     [~,fgallcluster] = max(fgallclusters,[],2);
 %     [~,bgallcluster] = max(bgallclusters,[],2);
-    bgallcluster = cluster(backGMFit, im_data);
-    fgallcluster = cluster(foreGMFit, im_data);
+    bgallcluster = cluster(backGMFit, back_im_data);
+    fgallcluster = cluster(foreGMFit, fore_im_data);
 
     fprintf('\n\n\n\n');
-    alpha = updateAlphaChoices(params, im_data, mu, sigma,pi, fgallcluster, bgallcluster, smoothIndices, smoothWeights);
-    form_im_data = im_data;
+    [alpha energy] = updateAlphaChoices(params, back_im_data, fore_im_data, mu, sigma,pi, fgallcluster, bgallcluster, smoothIndices, smoothWeights);
+    form_im_data = true_im_data;
     form_im_data(logical(alpha==1),:) = 0;
     form_im_data = reshape(form_im_data, [params.height params.width params.numColors]);
     imshow(form_im_data);

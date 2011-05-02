@@ -1,4 +1,4 @@
-function alpha = updateAlphaChoices(params, im_data, mu, sigma,pi,foreClusterIndices, backClusterIndices, smoothIndices, smoothWeights)
+function [alpha energy] = updateAlphaChoices(params, back_im_data, fore_im_data, mu, sigma,pi,foreClusterIndices, backClusterIndices, smoothIndices, smoothWeights)
 
 %Calculate weights of foreground and background
 %Find elements in the equation
@@ -25,8 +25,8 @@ foreWeights = zeros(params.numPixels,1);
 for i = 1:params.K
     curBackInd = backClusterIndices == i;
     curForeInd = foreClusterIndices == i;
-    backPixelDiff = bsxfun(@minus, squeeze(im_data(curBackInd,:)), squeeze(mu(1,i,:))');
-    forePixelDiff = bsxfun(@minus, squeeze(im_data(curForeInd,:)), squeeze(mu(2,i,:))');
+    backPixelDiff = bsxfun(@minus, squeeze(back_im_data(curBackInd,:)), squeeze(mu(1,i,:))');
+    forePixelDiff = bsxfun(@minus, squeeze(fore_im_data(curForeInd,:)), squeeze(mu(2,i,:))');
     backWeights(curBackInd) = -1*squeeze(logpi(1,i)) + 0.5 * squeeze(logDetSigma(1,i)) + ...
         0.5 * sum(backPixelDiff * squeeze(invSigma(1, i,:,:)) .* backPixelDiff,2);
     foreWeights(curForeInd) = -1*squeeze(logpi(2,i)) + 0.5 * squeeze(logDetSigma(2,i)) + ...
@@ -45,11 +45,10 @@ end
 backWeights(params.unknownInd);
 foreWeights(params.unknownInd);
 
-alpha = mexmaxflow(-1*backWeights, -1*foreWeights, smoothIndices, -1*smoothWeights);
-sum(alpha)
+[alpha energy] = mexmaxflow(-1*backWeights, -1*foreWeights, smoothIndices, -1*smoothWeights);
 alpha = alpha+1;
 alpha(~params.unknownInd) = 1;
-sum(alpha==2)
+energy = energy * -1;
 
 end
 

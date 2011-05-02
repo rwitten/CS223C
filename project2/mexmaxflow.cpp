@@ -23,7 +23,7 @@ void mexFunction(
   if (nrhs != 4) {
     mexErrMsgIdAndTxt("MATLAB:mexmaxflow:nargin", 
             "MEXCPP requires four input arguments.");
-  } else if (nlhs != 1) {
+  } else if (nlhs != 1 && nlhs != 2) {
     mexErrMsgIdAndTxt("MATLAB:mexmaxflow:nargout",
             "MEXCPP requires one output argument.");
   }
@@ -64,7 +64,7 @@ void mexFunction(
   }
 
   //Calc flow
-  g->maxflow();
+  double energy = g->maxflow();
 
   plhs[0] = mxCreateNumericMatrix(numNodes, 1, mxDOUBLE_CLASS, mxREAL);	
   double* arrPtr = mxGetPr(plhs[0]);
@@ -73,6 +73,7 @@ void mexFunction(
   {
 	  arrPtr[i] = g->what_segment(i) == GraphType::SINK;
   }
+  plhs[1] = mxCreateDoubleScalar(energy);
   
   delete g;
 
