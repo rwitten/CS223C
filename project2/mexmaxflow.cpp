@@ -53,7 +53,7 @@ void mexFunction(
 	g->add_tweights(i, backWeights[i], foreWeights[i]);
 	for (size_t j=0; j<numDirections; j++)
 	{
-        mexPrintf("Value1 = %g\n", smoothIndices[numNodes*j + i]);
+        //mexPrintf("Value1 = %g\n", smoothIndices[numNodes*j + i]);
 		int edgeIndex = (int)(smoothIndices[numNodes*j + i]-1);
 		double edgeWeight = smoothWeights[numNodes*j + i];
 		if (edgeIndex < 0) continue;
@@ -73,6 +73,8 @@ void mexFunction(
   {
 	  arrPtr[i] = g->what_segment(i) == GraphType::SINK;
   }
+  
+  delete g;
 
   return;
 }

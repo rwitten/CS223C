@@ -2,7 +2,7 @@ function grabcut(im_name)
 im_name='banana1.bmp';
 
 im_data = imread('banana1.bmp');
-im_data = im_data(1:20,1:20,:);
+%im_data = im_data(1:100,1:100,:);
 % % display the image
 % imagesc(im_data);
 % 
@@ -24,10 +24,10 @@ im_data = reshape(double(im_data) / 255, [im_height*im_width 3]);
 % ymin = max(ymin, 1);
 % ymax = min(im_height, ymax);
 
-xmin = 5;%32;
-xmax = 15;%606;
-ymin = 5;%29;
-ymax = 15;%421;
+xmin = 32;
+xmax = 606;
+ymin = 29;
+ymax = 421;
 
 bbox = [xmin ymin xmax ymax];
 %line(bbox([1 3 3 1 1]),bbox([2 2 4 4 2]),'Color',[1 0 0],'LineWidth',1);
@@ -45,18 +45,11 @@ params.width = im_width;
 params.numDirections = 8;
 params.lambda = 50;
 
-trimap = zeros(1,params.numPixels);
-
-for i = 1 : params.numPixels
-    [h w] = ind2sub([im_height im_width], i);
-     if (w > xmin) && (w < xmax) && (h > ymin) && (h < ymax)
-         trimap(i) = 3; %this means that its T_U or the initial foreground
-         %alpha(h,w) = 2; %2 means that its T_U or the initial foreground
-     else
-         %alpha(h,w) = 1; %1 means its in T_B or the initial background
-         trimap(i) = 1; %this means its in T_B or the initial background
-     end
-end
+trimap = ones(params.height,params.width);
+tic
+trimap(ymin:ymax,xmin:xmax) = 3;
+toc
+trimap = reshape(trimap, [1 params.numPixels]);
 
 alpha = (trimap==3)+1;
 
@@ -64,31 +57,41 @@ mu = rand(2,params.K,params.numColors);
 sigma = makePositiveSemiD(2,params.K, params.numColors);
 pi = zeros(2, params.K);
 
-
+tic
 %%Precompute the smoothing indices and weights
 %Calculate beta
-form_im_data(1,:,:) = im_data;
+%form_im_data(1,:,:) = im_data;
 %pixel_mat = repmat(form_im_data, [params.numPixels 1 1]);
 %pixel_diff_sq = (pixel_mat - permute(pixel_mat, [2 1 3])).^2;
-beta = 3;%1/(2*mean(mean(sum(pixel_diff_sq, 3))));
-smoothIndices = zeros(params.numPixels, params.numDirections);
-smoothWeights = zeros(params.numPixels, params.numDirections);
-for i = 1:params.numPixels
-   [y x] = ind2sub([params.height params.width], i);
-   curIndex = 1;
-   for dy = -1:1
-       for dx = -1:1
-           if (dx == 0 && dy == 0) continue;
-           end
-           if (x+dx < 1 || x+dx > params.width || y+dy < 1 || y+dy > params.height) continue;
-           end     
-           curPixelIndex = sub2ind([params.height params.width], y+dy, x+dx);
-           smoothIndices(i, curIndex) = curPixelIndex;
-           curPixelDiffSq = sum(squeeze(im_data(i,:) - im_data(curPixelIndex,:)).^2);
-           smoothWeights(i, curIndex) = params.lambda * exp(-1*beta*curPixelDiffSq);
-       end
-   end
+%beta = 3;%1/(2*mean(mean(sum(pixel_diff_sq, 3))));
+indexMat = zeros(params.height, params.width, params.numDirections);
+weightsMat = zeros(params.height, params.width, params.numDirections);
+curDiffSq = zeros(params.height, params.width, params.numDirections);
+shapedImage = reshape(im_data, [params.height params.width params.numColors]);
+padImage = padarray(shapedImage, [1 1 0]);
+indexImage = padarray(reshape(1:params.numPixels, [params.height params.width]), [1 1]);
+curIndex = 1;
+for dy=-1:1
+    for dx=-1:1
+        if (dy ==0 && dx ==0) continue;
+        end
+        distFactor = 1/sqrt(dx^2 + dy^2);
+        curDiffSq(:,:,curIndex) = sum((padImage(2:(end-1), 2:(end-1),:) - padImage((2+dy):(end-1+dy),(2+dx):(end-1+dx),:)).^2,3);
+        indexMat(:,:,curIndex) = indexImage((2+dy):(end-1+dy),(2+dx):(end-1+dx));
+        weightsMat(:,:,curIndex) = params.lambda * distFactor;
+        curIndex = curIndex + 1;
+    end
 end
+eps = 1e-6;
+weightsMat(:,:,:) = weightsMat(:,:,:) .* exp(-1*bsxfun(@rdivide, curDiffSq, (eps + 2*mean(curDiffSq,3))));
+smoothIndices = reshape(indexMat, [params.numPixels, params.numDirections]);
+smoothWeights = reshape(weightsMat, [params.numPixels, params.numDirections]);
+clear weightsMat
+clear indexMat
+clear padImage
+clear indexImage
+clear curDiffSq
+toc
 
 
 % grabcut algorithm
@@ -97,7 +100,7 @@ fprintf('****grabcut algorithm****\n');
 fprintf('*************************\n\n\n\n');
 
 tic;
-for iter=1:100%bs stopping criteria
+for iter=1:20%bs stopping criteria
     fprintf('we are on iteration %d\n', iter);
     
     fprintf('we are updating the cluster choices\n');
@@ -107,13 +110,20 @@ for iter=1:100%bs stopping criteria
     fprintf('we are updating the cluster parameters\n');
     [mu, sigma,pi] = updateClusterParameters(params, fgcluster,fg,bgcluster,bg);
     
-    fgallcluster=assigncluster(params, im_data, squeeze(mu(2,:,:)), squeeze(sigma(2,:,:,:)));
-    bgallcluster=assigncluster(params, im_data, squeeze(mu(1,:,:)), squeeze(sigma(1,:,:,:)));
+    fgallclusters=assigncluster(params, im_data, squeeze(mu(2,:,:)), squeeze(sigma(2,:,:,:)));
+    bgallclusters=assigncluster(params, im_data, squeeze(mu(1,:,:)), squeeze(sigma(1,:,:,:)));
+    [~,fgallcluster] = max(fgallclusters,[],2);
+    [~,bgallcluster] = max(bgallclusters,[],2);
 
     fprintf('\n\n\n\n');
     alpha = updateAlphaChoices(params, im_data, mu, sigma,pi, fgallcluster, bgallcluster, smoothIndices, smoothWeights);
 end
 toc
 %drawClusters(fg,fgcluster);
+size(im_data)
+im_data(logical(alpha==1),:) = 0;
+im_data = reshape(im_data, [params.height params.width params.numColors]);
+size(im_data);
+imshow(im_data);
 
 
