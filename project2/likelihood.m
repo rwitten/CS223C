@@ -1,4 +1,4 @@
-function [l] = likelihood(x, mu, sigma)
+function [l] = likelihood(x, mu, sigma, coeff)
     
     xoffset = x;
     for i=1:size(x,3) %number of channels
@@ -7,6 +7,6 @@ function [l] = likelihood(x, mu, sigma)
     
     innerweirdness = sum(( xoffset*inv(sigma)) .*(xoffset),2);
     
-    l = (2*pi)^(-length(mu)/2)*abs(det(sigma))^(-.5) ...
-        *exp(-.5 *innerweirdness);
+    l = log(coeff*((2*pi)^(-length(mu)/2))*(abs(det(sigma))^(-.5)) ...
+        *exp(-.5 *innerweirdness));
 end

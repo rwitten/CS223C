@@ -1,9 +1,9 @@
-function [ fgcluster,fg,bgcluster,bg ] = updateClusterChoices(params,alpha, im_data, mu, sigma)
+function [ fgcluster,fg,bgcluster,bg ] = updateClusterChoices(params,alpha, im_data, mu, sigma, pi)
     bg=im_data(logical(alpha==1),:);
     fg = im_data(logical(alpha==2),:);
     
-    fgclusters=assignCluster(params, fg, mu(2,:,:),sigma(2,:,:,:));
-    bgclusters=assignCluster(params, bg, mu(1,:,:),sigma(1,:,:,:));
+    fgclusters=assignCluster(params, fg, mu(2,:,:),sigma(2,:,:,:), pi(2,:));
+    bgclusters=assignCluster(params, bg, mu(1,:,:),sigma(1,:,:,:), pi(1,:));
     [~,fgcluster] = max(fgclusters,[],2);
     [~,bgcluster] = max(bgclusters,[],2);
 %     likelihoods = zeros(alphavec.K, 2, size(im_data,1) * size(im_data,2)

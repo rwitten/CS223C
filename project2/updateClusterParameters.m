@@ -29,7 +29,7 @@ function [mu, sigma, pi] = updateGaussian(params, clusters, pixels)
             end
             sigma(k,:,:)=unbiased_pixels' *  unbiased_pixels;
         else
-            disp 'error'
+            %disp 'error'
             pi(k) = 0;
             mu(k,:) = .5*rand(1,params.numColors);
             sigma(k,:,:) = eye(params.numColors, params.numColors);

@@ -42,10 +42,14 @@ end
 %         0.5 * (squeeze(im_data(i,:)) - squeeze(mu(2,curClusInd,:))') * squeeze(invSigma(2, curClusInd,:,:)) * ...
 %         (squeeze(im_data(i,:)) - squeeze(mu(2,curClusInd,:))')';
 % end
-backWeights;
+backWeights(params.unknownInd);
+foreWeights(params.unknownInd);
 
-alpha = mexmaxflow(backWeights, foreWeights, smoothIndices, smoothWeights);
+alpha = mexmaxflow(-1*backWeights, -1*foreWeights, smoothIndices, -1*smoothWeights);
+sum(alpha)
 alpha = alpha+1;
+alpha(~params.unknownInd) = 1;
+sum(alpha==2)
 
 end
 
