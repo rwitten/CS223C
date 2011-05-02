@@ -1,7 +1,8 @@
 function grabcut(im_name)
 im_name='banana1.bmp';
 
-%im_data = im_data(1:100,1:100,:);
+im_data = imread('banana1.bmp');
+im_data = im_data(1:20,1:20,:);
 % % display the image
 % imagesc(im_data);
 % 
@@ -16,17 +17,17 @@ im_name='banana1.bmp';
  [im_height, im_width, channel_num] = size(im_data);
 
 % % convert the pixel values to [0,1] for each R G B channel.
-im_data = reshape(double(imread(im_name)) / 255, [im_height*im_width 3]);
+im_data = reshape(double(im_data) / 255, [im_height*im_width 3]);
  
  % xmin = max(xmin, 1);
 % xmax = min(im_width, xmax);
 % ymin = max(ymin, 1);
 % ymax = min(im_height, ymax);
 
-xmin = 32;
-xmax = 606;
-ymin = 29;
-ymax = 421;
+xmin = 5;%32;
+xmax = 15;%606;
+ymin = 5;%29;
+ymax = 15;%421;
 
 bbox = [xmin ymin xmax ymax];
 %line(bbox([1 3 3 1 1]),bbox([2 2 4 4 2]),'Color',[1 0 0],'LineWidth',1);
@@ -60,16 +61,16 @@ end
 alpha = (trimap==3)+1;
 
 mu = rand(2,params.K,params.numColors);
-sigma = makePositiveSemiD(2,params.K, params.numColors, params.numColors);
+sigma = makePositiveSemiD(2,params.K, params.numColors);
 pi = zeros(2, params.K);
 
 
-%Precompute the smoothing indices and weights
+%%Precompute the smoothing indices and weights
 %Calculate beta
 form_im_data(1,:,:) = im_data;
-pixel_mat = repmat(form_im_data, [params.numPixels 1 1]);
-pixel_diff_sq = (pixel_mat - permute(pixel_mat, [2 1 3])).^2;
-beta = 1/(2*mean(mean(sum(pixel_diff_sq, 3))));
+%pixel_mat = repmat(form_im_data, [params.numPixels 1 1]);
+%pixel_diff_sq = (pixel_mat - permute(pixel_mat, [2 1 3])).^2;
+beta = 3;%1/(2*mean(mean(sum(pixel_diff_sq, 3))));
 smoothIndices = zeros(params.numPixels, params.numDirections);
 smoothWeights = zeros(params.numPixels, params.numDirections);
 for i = 1:params.numPixels
@@ -104,11 +105,13 @@ for iter=1:100%bs stopping criteria
         mu, sigma);
     
     fprintf('we are updating the cluster parameters\n');
-    [mu, sigma,pi] = updateClusterParameters(params, im_data,fgcluster,fg,bgcluster,bg);
+    [mu, sigma,pi] = updateClusterParameters(params, fgcluster,fg,bgcluster,bg);
     
-    
+    fgallcluster=assigncluster(params, im_data, squeeze(mu(2,:,:)), squeeze(sigma(2,:,:,:)));
+    bgallcluster=assigncluster(params, im_data, squeeze(mu(1,:,:)), squeeze(sigma(1,:,:,:)));
+
     fprintf('\n\n\n\n');
-    alpha = updateAlphaChoices(params, im_data, mu, sigma,pi, foreClusterIndices, backClusterIndices, smoothIndices, smoothWeights);
+    alpha = updateAlphaChoices(params, im_data, mu, sigma,pi, fgallcluster, bgallcluster, smoothIndices, smoothWeights);
 end
 toc
 %drawClusters(fg,fgcluster);

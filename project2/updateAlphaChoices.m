@@ -3,7 +3,7 @@ function alpha = updateAlphaChoices(params, im_data, mu, sigma,pi,foreClusterInd
 %Calculate weights of foreground and background
 %Find elements in the equation
 logpi = log(pi);
-detSimga = zeros(size(sigma,1), size(sigma,2));
+detSigma = zeros(size(sigma,1), size(sigma,2));
 invSigma = zeros(size(sigma));
 for i = 1:size(detSigma,1)
     for j = 1:size(detSigma,2)
@@ -21,7 +21,7 @@ foreWeights = -1*logpi(2,foreClusterIndices) + 0.5 * logDetSigma(2,foreClusterIn
     0.5 * (im_data(:,:) - mu(2,foreClusterIndices))' * invSigma(2, foreClusterIndices,:,:) * ...
     (im_data(:,:) - mu(1,foreClusterIndices));
 
-alpha = mexmaxflow(backWeights, foreWeights, smoothIndices, smoothWeights);
+alpha = mexmaxflow(-1*backWeights, -1*foreWeights, -1*smoothIndices, -1*smoothWeights);
 alpha = alpha+1;
 
 end
