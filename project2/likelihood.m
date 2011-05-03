@@ -1,5 +1,5 @@
 function [l] = likelihood(x, mu, sigma, coeff)
-    xoffset = x - repmat(mu', size(x,1), 1);
+    xoffset = bsxfun(@minus, x, mu');
     
     innerweirdness = sum(( xoffset*inv(sigma)) .*(xoffset),2);
     

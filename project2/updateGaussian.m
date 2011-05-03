@@ -11,12 +11,12 @@ function [mu, sigma, pi] = updateGaussian(params, clusters, pixels)
             mu(k,:) = sum(cluster_pixels,1)/size(cluster_pixels,1);
 
 
-            unbiased_pixels = cluster_pixels - repmat(mu(k,:), size(cluster_pixels,1),1);
+            unbiased_pixels = bsxfun(@minus, cluster_pixels, mu(k,:));
 
             sigma(k,:,:)= eye(params.numColors)*1e-5 +unbiased_pixels' *  unbiased_pixels;
             %sigma(k,:,:) = eye(params.numColors);
         else
-            pi(k) = 0;
+            pi(k) = 1/params.K;
             mu(k,:) = rand(1,params.numColors);
             sigma(k,:,:) = eye(params.numColors, params.numColors);
         end

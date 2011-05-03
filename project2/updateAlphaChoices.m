@@ -1,10 +1,10 @@
 function [alpha energy] = updateAlphaChoices(params, back_im_data, fore_im_data, backmu, backSigma, backpi, foremu, foreSigma, forepi, foreClusterIndices, backClusterIndices, smoothIndices, smoothWeights)
 
-sigma(1,:,:,:) = backSigma
+sigma(1,:,:,:) = backSigma;
 sigma(2,:,:,:) = foreSigma
-mu(1,:,:) = backmu 
+mu(1,:,:) = backmu;
 mu(2,:,:) = foremu
-pi(1,:) = backpi
+pi(1,:) = backpi;
 pi(2,:) = forepi
 
 %Calculate weights of foreground and background
