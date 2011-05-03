@@ -1,7 +1,7 @@
-function grabcut(im_name)
-im_name='sheep.jpg';
+function score = grabcut(im_name)
+im_name='sheep.bmp';
 
-im_data = imread(im_name);
+im_data = imread(sprintf('img/%s',im_name));
 %im_data = im_data(1:100,1:100,:);
 % % display the image
 % imagesc(im_data);
@@ -146,7 +146,7 @@ fore_im_vec = reshape(fore_im_data,  [im_height*im_width params.numColors]);
 
 
 tic;
-for iter=1:20%bs stopping criteria
+for iter=1:10%bs stopping criteria
     
     fprintf('number of foreground pixels %d\n',sum(alpha==2));
     fprintf('we are on iteration %d\n', iter);
@@ -199,5 +199,13 @@ disp_im_data = true_im_data;
 disp_im_data(logical(alpha==1),:) = 0;
 disp_im_data = reshape(disp_im_data, [params.height params.width params.numColors]);
 imshow(disp_im_data);
-% 
-% 
+
+try 
+    gt_data = imread(sprintf('gt/%s',im_name));
+    gt_alpha = gt_data == 255;
+    gt_alpha = reshape(gt_alpha, [numel(gt_alpha) 1]);
+    log_alpha = alpha==2;
+    score = sum(gt_alpha & log_alpha) / sum(gt_alpha | log_alpha);
+catch
+    score = 0;
+end
