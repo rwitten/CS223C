@@ -168,8 +168,7 @@ for iter=1:20%bs stopping criteria
     backpixels = back_im_vec(logical(alpha==1),:);
     forepixels = fore_im_vec(logical(alpha==2),:);
     fprintf('done getting pixels\n');
-    [backcluster] = assignCluster(params,backpixels,backmu,backSigma, backpi);
-    
+    [backcluster] = assignCluster(params,backpixels,backmu,backSigma, backpi);   
     [forecluster] = assignCluster(params,forepixels,foremu,foreSigma, forepi);
     %backGMFit = gmdistribution.fit(back_im_data(alpha==1,:), params.K, 'Options', gmmOptions, 'Start', backStartStruct);
     %foreGMFit = gmdistribution.fit(fore_im_data(alpha==2,:), params.K, 'Options', gmmOptions, 'Start', foreStartStruct);
@@ -195,7 +194,6 @@ for iter=1:20%bs stopping criteria
 end
 toc
 
-%drawClusters(fg,fgcluster);
 figure();
 disp_im_data = true_im_data;
 disp_im_data(logical(alpha==1),:) = 0;

@@ -1,6 +1,6 @@
 function [l] = likelihood(x, mu, sigma, coeff)
     xoffset = bsxfun(@minus, x, mu');
-    
+
     innerweirdness = sum(( xoffset*inv(sigma)) .*(xoffset),2);
     
     l = log(coeff*((2*pi)^(-length(mu)/2))*(abs(det(sigma))^(-.5)) ...
