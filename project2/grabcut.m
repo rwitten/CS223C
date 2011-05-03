@@ -1,5 +1,5 @@
 function grabcut(im_name)
-im_name='memorial.jpg';
+im_name='banana1.bmp';
 
 im_data = imread(im_name);
 %im_data = im_data(1:100,1:100,:);
