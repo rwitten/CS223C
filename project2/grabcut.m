@@ -54,6 +54,8 @@ fore_im_data = reshape(fore_im_data,  [im_height*im_width 3]);
 edge_im_data = true_im_data; %Temporary, can use a different image for weighting edges
 
 
+
+
 %Create trimap, original alpha, and bounding box extractor array
 trimap = ones(params.height,params.width);
 trimap(ymin:ymax,xmin:xmax) = 3;
@@ -66,17 +68,6 @@ params.unknownInd = alpha==2;
 % sigma = makePositiveSemiD(2, params.K, params.numColors);
 % pi = 1/params.K * ones(2, params.K);
 %im_data(logical(~params.unknownInd))
-gmmOptions = statset(@gmdistribution);
-gmmOptions.MaxIter = params.initIter;
-backGMFit = gmdistribution.fit(back_im_data(params.unknownInd==0,:), params.K, 'Options', gmmOptions);
-foreGMFit = gmdistribution.fit(fore_im_data(params.unknownInd==1,:), params.K, 'Options', gmmOptions);
-mu(1,:,:) = backGMFit.mu;
-mu(2,:,:) = foreGMFit.mu;
-sigma(1,:,:,:) = permute(backGMFit.Sigma, [3 1 2]);
-sigma(2,:,:,:) = permute(foreGMFit.Sigma, [3 1 2]);
-pi(1,:) = backGMFit.PComponents;
-pi(2,:) = foreGMFit.PComponents;
-gmmOptions.MaxIter = params.MaxIter;
 
 tic
 %%Precompute the smoothing indices and weights
@@ -115,9 +106,22 @@ fprintf('*************************\n');
 fprintf('****grabcut algorithm****\n');
 fprintf('*************************\n\n\n\n');
 
+backmu = rand(params.K, params.numColors);
+backSigma = squeeze(makePositiveSemiD(1, params.K, params.numColors));
+backpi = rand(params.K, 1);
+foremu = rand(params.K, params.numColors);
+foreSigma = squeeze(makePositiveSemiD(1, params.K, params.numColors));
+forePComponents = rand(params.K,1);
+
+fprintf('lets reshape\n');
+back_im_vec = reshape(back_im_data,  [im_height*im_width params.numColors]);
+fore_im_vec = reshape(fore_im_data,  [im_height*im_width params.numColors]);
+
+
 tic;
 for iter=1:20%bs stopping criteria
-    sum(alpha==2)
+    
+    fprintf('number of foreground pixels %d\n',sum(alpha==2));
     fprintf('we are on iteration %d\n', iter);
     
 %     fprintf('we are updating the cluster choices\n');
@@ -127,37 +131,40 @@ for iter=1:20%bs stopping criteria
 %     fprintf('we are updating the cluster parameters\n');
 %     [mu, sigma,pi] = updateClusterParameters(params, fgcluster,fg,bgcluster,bg);
 %   
-    backStartStruct.mu = backGMFit.mu;
-    backStartStruct.Sigma = backGMFit.Sigma;
-    backStartStruct.PComponents = backGMFit.PComponents;
-    foreStartStruct.mu = foreGMFit.mu;
-    foreStartStruct.Sigma = foreGMFit.Sigma;
-    foreStartStruct.PComponents = foreGMFit.PComponents;
+    %backStartStruct.mu = backGMFit.mu;
+    %backStartStruct.Sigma = backGMFit.Sigma;
+    %backStartStruct.PComponents = backGMFit.PComponents;
+    %foreStartStruct.mu = foreGMFit.mu;
+    %foreStartStruct.Sigma = foreGMFit.Sigma;
+    %foreStartStruct.PComponents = foreGMFit.PComponents;
+
+    backpixels = back_im_vec(logical(alpha==1),:);
+    forepixels = fore_im_vec(logical(alpha==2),:);
+    fprintf('done getting pixels\n');
+    [backcluster] = assignCluster(params,backpixels,backmu,backSigma, ones(params.numColors,1));
     
-    backGMFit = gmdistribution.fit(back_im_data(alpha==1,:), params.K, 'Options', gmmOptions, 'Start', backStartStruct);
-    foreGMFit = gmdistribution.fit(fore_im_data(alpha==2,:), params.K, 'Options', gmmOptions, 'Start', foreStartStruct);
-    mu(1,:,:) = backGMFit.mu;
-    mu(2,:,:) = foreGMFit.mu;
-    sigma(1,:,:,:) = permute(backGMFit.Sigma, [3 1 2]);
-    sigma(2,:,:,:) = permute(foreGMFit.Sigma, [3 1 2]);
-    pi(1,:) = backGMFit.PComponents;
-    pi(2,:) = foreGMFit.PComponents;
+    [forecluster] = assignCluster(params,forepixels,foremu,foreSigma, ones(params.numColors,1));
+    %backGMFit = gmdistribution.fit(back_im_data(alpha==1,:), params.K, 'Options', gmmOptions, 'Start', backStartStruct);
+    %foreGMFit = gmdistribution.fit(fore_im_data(alpha==2,:), params.K, 'Options', gmmOptions, 'Start', foreStartStruct);
+    fprintf('done assigning clusters\n');
+    [backmu, backSigma, backpi] = updateGaussian(params, backcluster, backpixels);
+    [foremu, foreSigma, forepi] = updateGaussian(params, forecluster, forepixels);
 
 
 %     fgallclusters=assigncluster(params, im_data, squeeze(mu(2,:,:)), squeeze(sigma(2,:,:,:)), squeeze(pi(2,:)));
 %     bgallclusters=assigncluster(params, im_data, squeeze(mu(1,:,:)), squeeze(sigma(1,:,:,:)), squeeze(pi(1,:)));
 %     [~,fgallcluster] = max(fgallclusters,[],2);
 %     [~,bgallcluster] = max(bgallclusters,[],2);
-    bgallcluster = cluster(backGMFit, back_im_data);
-    fgallcluster = cluster(foreGMFit, fore_im_data);
+    bgallcluster = assignCluster(params, back_im_vec,backmu, backSigma, backpi);
+    fgallcluster = assignCluster(params, fore_im_vec,foremu, foreSigma, forepi);
 
-    fprintf('\n\n\n\n');
-    [alpha energy] = updateAlphaChoices(params, back_im_data, fore_im_data, mu, sigma,pi, fgallcluster, bgallcluster, smoothIndices, smoothWeights);
-    form_im_data = true_im_data;
-    form_im_data(logical(alpha==1),:) = 0;
-    form_im_data = reshape(form_im_data, [params.height params.width params.numColors]);
-    imshow(form_im_data);
-    drawnow;
+    %fprintf('\n\n\n\n');
+    %[alpha energy] = updateAlphaChoices(params, back_im_data, fore_im_data, mu, sigma,pi, fgallcluster, bgallcluster, smoothIndices, smoothWeights);
+    %form_im_data = true_im_data;
+    %form_im_data(logical(alpha==1),:) = 0;
+    %form_im_data = reshape(form_im_data, [params.height params.width params.numColors]);
+    %imshow(form_im_data);
+    %drawnow;
 end
 toc
 
