@@ -1,5 +1,5 @@
 function grabcut(im_name)
-im_name='banana1.bmp';
+im_name='sheep.jpg';
 
 im_data = imread(im_name);
 %im_data = im_data(1:100,1:100,:);
@@ -31,28 +31,52 @@ params.numPixels= im_height * im_width;
 params.height = im_height;
 params.width = im_width;
 params.numDirections = 8;
-params.lambda = 50;
+params.gamma = 50;
 params.MaxIter = 1;
 params.initIter = 4;
+params.sharpAlpha = 0.2;
+eps = 1e-6;
 
-  %%Process Image Data
-% % convert the pixel values to [0,1] for each R G B channel.
+%%Process Image Data
+%convert the pixel values to [0,1] for each R G B channel.
 %true_im_data is for display
 true_im_data = double(im_data) / 255;
 back_im_data = true_im_data;
 fore_im_data = true_im_data;
-%Filter background image
-h = 1/9 * ones(3,3); %fspecial('unsharp');
-sharpGray = imfilter(double(rgb2gray(back_im_data)), h, 'replicate');
-normIm = squeeze(.30 * back_im_data(:,:,1) + .59*back_im_data(:,:,2) + .11*back_im_data(:,:,3));
+edge_im_data = true_im_data;
+%Filter foreground image
+h = gausswin(11);
+sharpGray = imfilter(double(rgb2gray(fore_im_data)), h, 'replicate');
+normIm = rgb2gray(fore_im_data);
 for i=1:params.numColors;
-    back_im_data(:,:,i) = back_im_data(:,:,i) .* sharpGray./normIm;%imfilter(true_im_data(:,:,i), h, 'replicate');
+    fore_im_data(:,:,i) = fore_im_data(:,:,i) .* sharpGray./(eps+normIm);
+    %back_im_data(:,:,i) = imfilter(true_im_data(:,:,i), h, 'replicate');
 end
+
+%Filter edge weights image
+h = fspecial('unsharp', params.sharpAlpha);
+sharpGray = imfilter(double(rgb2gray(edge_im_data)), h, 'replicate');
+normIm = rgb2gray(edge_im_data);%squeeze(.30 * edge_im_data(:,:,1) + .59*edge_im_data(:,:,2) + .11*edge_im_data(:,:,3));
+for i=1:params.numColors;
+    edge_im_data(:,:,i) = edge_im_data(:,:,i) .* sharpGray./(eps+normIm);
+    %edge_im_data(:,:,i) = imfilter(edge_im_data(:,:,i), h, 'replicate');
+end
+
+%Reshape images
 true_im_data = reshape(true_im_data, [im_height*im_width 3]);
 back_im_data = reshape(back_im_data,  [im_height*im_width 3]);
 fore_im_data = reshape(fore_im_data,  [im_height*im_width 3]);
-edge_im_data = true_im_data; %Temporary, can use a different image for weighting edges
+edge_im_data = reshape(edge_im_data,  [im_height*im_width 3]); %Temporary, can use a different image for weighting edges
 
+%Renormalize image data
+true_im_data = true_im_data - min(min(true_im_data));
+true_im_data = true_im_data / max(max(true_im_data));
+back_im_data = back_im_data - min(min(back_im_data));
+back_im_data = back_im_data / max(max(back_im_data));
+fore_im_data = fore_im_data - min(min(fore_im_data));
+fore_im_data = fore_im_data / max(max(fore_im_data));
+edge_im_data = edge_im_data - min(min(edge_im_data));
+edge_im_data = edge_im_data / max(max(edge_im_data));
 
 
 
@@ -76,8 +100,8 @@ indexMat = zeros(params.height, params.width, params.numDirections);
 weightsMat = zeros(params.height, params.width, params.numDirections);
 curDiffSq = zeros(params.height, params.width, params.numDirections);
 shapedImage = reshape(edge_im_data, [params.height params.width params.numColors]);
-padImage = padarray(shapedImage, [1 1 0]);
-indexImage = padarray(reshape(1:params.numPixels, [params.height params.width]), [1 1]);
+padImage = padarray(shapedImage, [1 1 0], 0);
+indexImage = padarray(reshape(1:params.numPixels, [params.height params.width]), [1 1], 0);
 curIndex = 1;
 for dy=-1:1
     for dx=-1:1
@@ -86,12 +110,15 @@ for dy=-1:1
         distFactor = 1/sqrt(dx^2 + dy^2);
         curDiffSq(:,:,curIndex) = sum((padImage(2:(end-1), 2:(end-1),:) - padImage((2+dy):(end-1+dy),(2+dx):(end-1+dx),:)).^2,3);
         indexMat(:,:,curIndex) = indexImage((2+dy):(end-1+dy),(2+dx):(end-1+dx));
-        weightsMat(:,:,curIndex) = params.lambda * distFactor;
+        weightsMat(:,:,curIndex) = params.gamma * distFactor;
         curIndex = curIndex + 1;
     end
 end
-eps = 1e-6;
-weightsMat(:,:,:) = weightsMat(:,:,:) .* exp(-1*bsxfun(@rdivide, curDiffSq, (eps + 2*mean(mean(mean(curDiffSq))))));
+
+nonZeroDiff = indexMat ~= 0;
+curDiffSq(~nonZeroDiff) = 0;
+beta = 1/(eps + 2*(numel(curDiffSq)/sum(sum(sum(nonZeroDiff))))*mean(mean(mean(curDiffSq))))
+weightsMat(:,:,:) = weightsMat(:,:,:) .* exp(-1*bsxfun(@times, curDiffSq, beta));
 smoothIndices = reshape(indexMat, [params.numPixels, params.numDirections]);
 smoothWeights = reshape(weightsMat, [params.numPixels, params.numDirections]);
 clear weightsMat
@@ -158,13 +185,13 @@ for iter=1:20%bs stopping criteria
     bgallcluster = assignCluster(params, back_im_vec,backmu, backSigma, backpi);
     fgallcluster = assignCluster(params, fore_im_vec,foremu, foreSigma, forepi);
 
-    %fprintf('\n\n\n\n');
-    %[alpha energy] = updateAlphaChoices(params, back_im_data, fore_im_data, mu, sigma,pi, fgallcluster, bgallcluster, smoothIndices, smoothWeights);
-    %form_im_data = true_im_data;
-    %form_im_data(logical(alpha==1),:) = 0;
-    %form_im_data = reshape(form_im_data, [params.height params.width params.numColors]);
-    %imshow(form_im_data);
-    %drawnow;
+    fprintf('\n\n\n\n');
+    [alpha energy] = updateAlphaChoices(params, back_im_data, fore_im_data, backmu, backSigma, backpi, foremu, foreSigma, forepi, fgallcluster, bgallcluster, smoothIndices, smoothWeights);
+    form_im_data = true_im_data;
+    form_im_data(logical(alpha==1),:) = 0;
+    form_im_data = reshape(form_im_data, [params.height params.width params.numColors]);
+    imshow(form_im_data);
+    drawnow;
 end
 toc
 

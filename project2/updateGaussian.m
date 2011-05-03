@@ -7,7 +7,7 @@ function [mu, sigma, pi] = updateGaussian(params, clusters, pixels)
         cluster_pixels = pixels(logical(clusters==k),:);
         
         if sum(clusters==k)>=1
-            pi(k) = size(cluster_pixels,1) / size(cluster_pixels,1);
+            pi(k) = size(cluster_pixels,1) / size(pixels,1);
             mu(k,:) = sum(cluster_pixels,1)/size(cluster_pixels,1);
 
 
