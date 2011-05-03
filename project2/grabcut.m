@@ -25,7 +25,7 @@ im_data = imread(im_name);
 %line(bbox([1 3 3 1 1]),bbox([2 2 4 4 2]),'Color',[1 0 0],'LineWidth',1);
 
 %Paramaters for functions
-params.K = 5;
+params.K = 2;
 params.numColors = channel_num;
 params.numPixels= im_height * im_width;
 params.height = im_height;
@@ -111,7 +111,7 @@ backSigma = squeeze(makePositiveSemiD(1, params.K, params.numColors));
 backpi = rand(params.K, 1);
 foremu = rand(params.K, params.numColors);
 foreSigma = squeeze(makePositiveSemiD(1, params.K, params.numColors));
-forePComponents = rand(params.K,1);
+forepi = rand(params.K,1);
 
 fprintf('lets reshape\n');
 back_im_vec = reshape(back_im_data,  [im_height*im_width params.numColors]);
@@ -141,9 +141,9 @@ for iter=1:20%bs stopping criteria
     backpixels = back_im_vec(logical(alpha==1),:);
     forepixels = fore_im_vec(logical(alpha==2),:);
     fprintf('done getting pixels\n');
-    [backcluster] = assignCluster(params,backpixels,backmu,backSigma, ones(params.numColors,1));
-    
-    [forecluster] = assignCluster(params,forepixels,foremu,foreSigma, ones(params.numColors,1));
+    [backcluster] = assignCluster(params,backpixels,backmu,backSigma, ones(params.K,1));
+    sum(backcluster==1)
+    [forecluster] = assignCluster(params,forepixels,foremu,foreSigma, ones(params.K,1));
     %backGMFit = gmdistribution.fit(back_im_data(alpha==1,:), params.K, 'Options', gmmOptions, 'Start', backStartStruct);
     %foreGMFit = gmdistribution.fit(fore_im_data(alpha==2,:), params.K, 'Options', gmmOptions, 'Start', foreStartStruct);
     fprintf('done assigning clusters\n');
@@ -168,7 +168,6 @@ for iter=1:20%bs stopping criteria
 end
 toc
 
-%drawClusters(fg,fgcluster);
 figure();
 disp_im_data = true_im_data;
 disp_im_data(logical(alpha==1),:) = 0;

@@ -11,8 +11,9 @@ function [] = gmmTester( )
 
     for i=1:K
         numberofsamples = floor(rand() * maxsamples);
+        numberofsamples = maxsamples;
         s = randn(n);
-        sigma = .001 * (s' * s);
+        sigma = 1e-3 * (s' * s);
         samples = [samples; mvnrnd(rand(n,1), sigma, numberofsamples )];
     end
 
@@ -21,15 +22,21 @@ function [] = gmmTester( )
     
     mu = rand(K,n);
     sigma = squeeze(makePositiveSemiD(1,K, n));
-    pi = rand(K,1);
+    pi = ones(K,1)/K;
     
     params.K=K;
     params.numColors = n;
-    for i=1:10000,
-        sampleclusters = assignCluster(params, samples, mu, sigma,pi);
+    for i=1:100,
+        disp 'iteration!'
+        sampleclusters = assignCluster(params, samples, mu, sigma,ones(K,1)/K);
         [mu,sigma,pi]=updateGaussian(params, sampleclusters, samples);
-        
-        %waitforbuttonpress
+%          mu(1,:)
+%          squeeze(sigma(1,:,:))
+%          mu(2,:)
+%          squeeze(sigma(2,:,:))
+%          clf('reset')
+%      	drawClusters(samples, sampleclusters);
+%          waitforbuttonpress
     end
     clf('reset')
 	drawClusters(samples, sampleclusters);
