@@ -1,5 +1,5 @@
 function score = grabcut(im_name)
-im_name='sheep.bmp';
+im_name='ceramic.bmp';
 beInteractive = true; 
 useGMTools = true;
 im_data = imread(sprintf('img/%s',im_name));
@@ -37,8 +37,8 @@ bbox = [xmin ymin xmax ymax];
 
 %Paramaters for functions
 params.K = 5;
-params.foreK = params.K;
-params.backK = params.K;
+params.foreK = 5;
+params.backK = 8;
 params.numColors = channel_num;
 params.numPixels= im_height * im_width;
 params.height = im_height;
@@ -46,7 +46,7 @@ params.width = im_width;
 params.numDirections = 8;
 params.gamma = 50;
 params.MaxIter = 1;
-params.initIter = 4;
+params.initIter = 1;
 params.sharpAlpha = 0.2;
 eps = 1e-6;
 
@@ -67,20 +67,20 @@ edge_im_data = true_im_data;
 % end
 
 %Filter edge weights image
-% h = fspecial('unsharp', params.sharpAlpha);
-% sharpGray = imfilter(double(rgb2gray(edge_im_data)), h, 'replicate');
-% normIm = rgb2gray(edge_im_data);%squeeze(.30 * edge_im_data(:,:,1) + .59*edge_im_data(:,:,2) + .11*edge_im_data(:,:,3));
-% for i=1:params.numColors;
-%     edge_im_data(:,:,i) = edge_im_data(:,:,i) .* sharpGray./(eps+normIm);
-%     %edge_im_data(:,:,i) = imfilter(edge_im_data(:,:,i), h, 'replicate');
-% end
+h = fspecial('unsharp', params.sharpAlpha);
+sharpGray = imfilter(double(rgb2gray(edge_im_data)), h, 'replicate');
+normIm = rgb2gray(edge_im_data);%squeeze(.30 * edge_im_data(:,:,1) + .59*edge_im_data(:,:,2) + .11*edge_im_data(:,:,3));
+for i=1:params.numColors;
+    edge_im_data(:,:,i) = edge_im_data(:,:,i) .* sharpGray./(eps+normIm);
+    %edge_im_data(:,:,i) = imfilter(edge_im_data(:,:,i), h, 'replicate');
+end
 
 %Reshape images
 true_im_data = reshape(true_im_data, [im_height*im_width 3]);
 back_im_data = reshape(back_im_data,  [im_height*im_width 3]);
 fore_im_data = reshape(fore_im_data,  [im_height*im_width 3]);
 edge_im_data = reshape(edge_im_data,  [im_height*im_width 3]); %Temporary, can use a different image for weighting edges
-back_im_data = fore_im_data;
+%back_im_data = fore_im_data;
 
 %Renormalize image data
 true_im_data = true_im_data - min(min(true_im_data));
