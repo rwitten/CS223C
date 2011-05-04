@@ -1,6 +1,7 @@
 function score = grabcut(im_name)
-im_name='banana1.bmp';
-beInteractive = false; 
+im_name='sheep.bmp';
+beInteractive = true; 
+useGMTools = true;
 im_data = imread(sprintf('img/%s',im_name));
 %im_data = im_data(1:100,1:100,:);
 % % display the image
@@ -21,10 +22,10 @@ if beInteractive
      ymin=min(p(:,2));ymax=max(p(:,2));
      
 
-     xmin = max(xmin, 1)
-     xmax = min(im_width, xmax)
-     ymin = max(ymin, 1)
-     ymax = min(im_height, ymax)
+     xmin = max(xmin, 1);
+     xmax = min(im_width, xmax);
+     ymin = max(ymin, 1);
+     ymax = min(im_height, ymax);
 else
      xmin = 32;
      xmax = 607;
@@ -36,6 +37,8 @@ bbox = [xmin ymin xmax ymax];
 
 %Paramaters for functions
 params.K = 5;
+params.foreK = params.K;
+params.backK = params.K;
 params.numColors = channel_num;
 params.numPixels= im_height * im_width;
 params.height = im_height;
@@ -55,28 +58,29 @@ back_im_data = true_im_data;
 fore_im_data = true_im_data;
 edge_im_data = true_im_data;
 %Filter foreground image
-h = gausswin(11);
-sharpGray = imfilter(double(rgb2gray(fore_im_data)), h, 'replicate');
-normIm = rgb2gray(fore_im_data);
-for i=1:params.numColors;
-    fore_im_data(:,:,i) = fore_im_data(:,:,i) .* sharpGray./(eps+normIm);
-    %back_im_data(:,:,i) = imfilter(true_im_data(:,:,i), h, 'replicate');
-end
+% h = gausswin(11);
+% sharpGray = imfilter(double(rgb2gray(fore_im_data)), h, 'replicate');
+% normIm = rgb2gray(fore_im_data);
+% for i=1:params.numColors;
+%     fore_im_data(:,:,i) = fore_im_data(:,:,i) .* sharpGray./(eps+normIm);
+%     %back_im_data(:,:,i) = imfilter(true_im_data(:,:,i), h, 'replicate');
+% end
 
 %Filter edge weights image
-h = fspecial('unsharp', params.sharpAlpha);
-sharpGray = imfilter(double(rgb2gray(edge_im_data)), h, 'replicate');
-normIm = rgb2gray(edge_im_data);%squeeze(.30 * edge_im_data(:,:,1) + .59*edge_im_data(:,:,2) + .11*edge_im_data(:,:,3));
-for i=1:params.numColors;
-    edge_im_data(:,:,i) = edge_im_data(:,:,i) .* sharpGray./(eps+normIm);
-    %edge_im_data(:,:,i) = imfilter(edge_im_data(:,:,i), h, 'replicate');
-end
+% h = fspecial('unsharp', params.sharpAlpha);
+% sharpGray = imfilter(double(rgb2gray(edge_im_data)), h, 'replicate');
+% normIm = rgb2gray(edge_im_data);%squeeze(.30 * edge_im_data(:,:,1) + .59*edge_im_data(:,:,2) + .11*edge_im_data(:,:,3));
+% for i=1:params.numColors;
+%     edge_im_data(:,:,i) = edge_im_data(:,:,i) .* sharpGray./(eps+normIm);
+%     %edge_im_data(:,:,i) = imfilter(edge_im_data(:,:,i), h, 'replicate');
+% end
 
 %Reshape images
 true_im_data = reshape(true_im_data, [im_height*im_width 3]);
 back_im_data = reshape(back_im_data,  [im_height*im_width 3]);
 fore_im_data = reshape(fore_im_data,  [im_height*im_width 3]);
 edge_im_data = reshape(edge_im_data,  [im_height*im_width 3]); %Temporary, can use a different image for weighting edges
+back_im_data = fore_im_data;
 
 %Renormalize image data
 true_im_data = true_im_data - min(min(true_im_data));
@@ -143,16 +147,26 @@ fprintf('*************************\n');
 fprintf('****grabcut algorithm****\n');
 fprintf('*************************\n\n\n\n');
 
-backmu = rand(params.K, params.numColors);
-backSigma = squeeze(makePositiveSemiD(1, params.K, params.numColors));
-backpi = 1/params.K * ones(params.K,1);
-foremu = rand(params.K, params.numColors);
-foreSigma = squeeze(makePositiveSemiD(1, params.K, params.numColors));
-forepi = 1/params.K * ones(params.K,1);
-
-fprintf('lets reshape\n');
-back_im_vec = reshape(back_im_data,  [im_height*im_width params.numColors]);
-fore_im_vec = reshape(fore_im_data,  [im_height*im_width params.numColors]);
+if useGMTools
+    gmmOpts = statset(@gmdistribution);
+    gmmOpts.MaxIter = params.initIter;
+    backGMFit = gmdistribution.fit(back_im_data(alpha==1,:),params.backK, 'Options', gmmOpts);
+    foreGMFit = gmdistribution.fit(fore_im_data(alpha==2,:),params.foreK, 'Options', gmmOpts);
+    backmu = backGMFit.mu;
+    backSigma = permute(backGMFit.Sigma, [3 1 2]);
+    backpi = backGMFit.PComponents;
+    foremu = foreGMFit.mu;
+    foreSigma = permute(foreGMFit.Sigma, [3 1 2]);
+    forepi = foreGMFit.PComponents;
+    gmmOpts.MaxIter = params.MaxIter;
+else
+    backmu = rand(params.K, params.numColors);
+    backSigma = squeeze(makePositiveSemiD(1, params.K, params.numColors));
+    backpi = 1/params.K * ones(params.K,1);
+    foremu = rand(params.K, params.numColors);
+    foreSigma = squeeze(makePositiveSemiD(1, params.K, params.numColors));
+    forepi = 1/params.K * ones(params.K,1);
+end
 
 
 tic;
@@ -175,26 +189,48 @@ for iter=1:10%bs stopping criteria
     %foreStartStruct.Sigma = foreGMFit.Sigma;
     %foreStartStruct.PComponents = foreGMFit.PComponents;
 
-    backpixels = back_im_vec(logical(alpha==1),:);
-    forepixels = fore_im_vec(logical(alpha==2),:);
-    fprintf('done getting pixels\n');
-    [backcluster] = assignCluster(params,backpixels,backmu,backSigma, ones(params.K,1));   
-    [forecluster] = assignCluster(params,forepixels,foremu,foreSigma, forepi);
-    %backGMFit = gmdistribution.fit(back_im_data(alpha==1,:), params.K, 'Options', gmmOptions, 'Start', backStartStruct);
-    %foreGMFit = gmdistribution.fit(fore_im_data(alpha==2,:), params.K, 'Options', gmmOptions, 'Start', foreStartStruct);
-    fprintf('done assigning clusters\n');
-    [backmu, backSigma, backpi] = updateGaussian(params, backcluster, backpixels);
-    [foremu, foreSigma, forepi] = updateGaussian(params, forecluster, forepixels);
-    fprintf('done updating gaussian\n');
+    if useGMTools
+        startBackStruct.mu = backGMFit.mu;
+        startBackStruct.Sigma = backGMFit.Sigma;
+        startBackStruct.PComponents = backGMFit.PComponents;
+        startForeStruct.mu = foreGMFit.mu;
+        startForeStruct.Sigma = foreGMFit.Sigma;
+        startForeStruct.PComponents = foreGMFit.PComponents;
+        backGMFit = gmdistribution.fit(back_im_data(alpha==1,:),params.backK, 'Options', gmmOpts, 'Start', startBackStruct);
+        foreGMFit = gmdistribution.fit(fore_im_data(alpha==2,:),params.foreK, 'Options', gmmOpts, 'Start', startForeStruct);
+        backmu = backGMFit.mu;
+        backSigma = permute(backGMFit.Sigma, [3 1 2]);
+        backpi = backGMFit.PComponents;
+        foremu = foreGMFit.mu;
+        foreSigma = permute(foreGMFit.Sigma, [3 1 2]);
+        forepi = foreGMFit.PComponents;
+    else
+        backpixels = back_im_data(logical(alpha==1),:);
+        forepixels = fore_im_data(logical(alpha==2),:);
+        fprintf('done getting pixels\n');
+        [backcluster] = assignCluster(params,backpixels,backmu,backSigma, ones(params.K,1));   
+        [forecluster] = assignCluster(params,forepixels,foremu,foreSigma, forepi);
+        %backGMFit = gmdistribution.fit(back_im_data(alpha==1,:), params.K, 'Options', gmmOptions, 'Start', backStartStruct);
+        %foreGMFit = gmdistribution.fit(fore_im_data(alpha==2,:), params.K, 'Options', gmmOptions, 'Start', foreStartStruct);
+        fprintf('done assigning clusters\n');
+        [backmu, backSigma, backpi] = updateGaussian(params, backcluster, backpixels);
+        [foremu, foreSigma, forepi] = updateGaussian(params, forecluster, forepixels);
+        fprintf('done updating gaussian\n');
+    end
 
 %     fgallclusters=assigncluster(params, im_data, squeeze(mu(2,:,:)), squeeze(sigma(2,:,:,:)), squeeze(pi(2,:)));
 %     bgallclusters=assigncluster(params, im_data, squeeze(mu(1,:,:)), squeeze(sigma(1,:,:,:)), squeeze(pi(1,:)));
 %     [~,fgallcluster] = max(fgallclusters,[],2);
 %     [~,bgallcluster] = max(bgallclusters,[],2);
-    bgallcluster = assignCluster(params, back_im_vec,backmu, backSigma, backpi);
-    fgallcluster = assignCluster(params, fore_im_vec,foremu, foreSigma, forepi);
-    fprintf('done assigning every pixel a color\n');
-    
+    if useGMTools
+        bgallcluster = cluster(backGMFit, back_im_data);
+        fgallcluster = cluster(foreGMFit, fore_im_data);
+    else
+        bgallcluster = assignCluster(params, back_im_data,backmu, backSigma, backpi);
+        fgallcluster = assignCluster(params, fore_im_data,foremu, foreSigma, forepi);
+        fprintf('done assigning every pixel a color\n');
+    end
+
     form_im_data = true_im_data;
     [alpha energy] = updateAlphaChoices(params, back_im_data, fore_im_data, backmu, backSigma, backpi, foremu, foreSigma, forepi, ...
         fgallcluster, bgallcluster, smoothIndices, smoothWeights);
