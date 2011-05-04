@@ -1,27 +1,37 @@
 function score = grabcut(im_name)
-im_name='sheep.bmp';
-
+im_name='banana1.bmp';
+beInteractive = false; 
 im_data = imread(sprintf('img/%s',im_name));
 %im_data = im_data(1:100,1:100,:);
 % % display the image
 % imagesc(im_data);
 % 
 % % a bounding box initialization
- disp('Draw a bounding box to specify the rough location of the foreground');
- set(gca,'Units','pixels');
- imshow(im_data)
- ginput(1);
- p1=get(gca,'CurrentPoint');fr=rbbox;p2=get(gca,'CurrentPoint');
- p=round([p1;p2]);
- xmin=min(p(:,1));xmax=max(p(:,1));
- ymin=min(p(:,2));ymax=max(p(:,2));
- [im_height, im_width, channel_num] = size(im_data);
 
- xmin = max(xmin, 1);
- xmax = min(im_width, xmax);
- ymin = max(ymin, 1);
- ymax = min(im_height, ymax);
- bbox = [xmin ymin xmax ymax];
+[im_height, im_width, channel_num] = size(im_data);
+
+if beInteractive
+     disp('Draw a bounding box to specify the rough location of the foreground');
+     set(gca,'Units','pixels');
+     imshow(im_data)
+     ginput(1);
+     p1=get(gca,'CurrentPoint');fr=rbbox;p2=get(gca,'CurrentPoint');
+     p=round([p1;p2]);
+     xmin=min(p(:,1));xmax=max(p(:,1));
+     ymin=min(p(:,2));ymax=max(p(:,2));
+     
+
+     xmin = max(xmin, 1)
+     xmax = min(im_width, xmax)
+     ymin = max(ymin, 1)
+     ymax = min(im_height, ymax)
+else
+     xmin = 32;
+     xmax = 607;
+     ymin = 33;
+     ymax = 424;
+end
+bbox = [xmin ymin xmax ymax];
 %line(bbox([1 3 3 1 1]),bbox([2 2 4 4 2]),'Color',[1 0 0],'LineWidth',1);
 
 %Paramaters for functions
@@ -168,14 +178,14 @@ for iter=1:10%bs stopping criteria
     backpixels = back_im_vec(logical(alpha==1),:);
     forepixels = fore_im_vec(logical(alpha==2),:);
     fprintf('done getting pixels\n');
-    [backcluster] = assignCluster(params,backpixels,backmu,backSigma, backpi);   
+    [backcluster] = assignCluster(params,backpixels,backmu,backSigma, ones(params.K,1));   
     [forecluster] = assignCluster(params,forepixels,foremu,foreSigma, forepi);
     %backGMFit = gmdistribution.fit(back_im_data(alpha==1,:), params.K, 'Options', gmmOptions, 'Start', backStartStruct);
     %foreGMFit = gmdistribution.fit(fore_im_data(alpha==2,:), params.K, 'Options', gmmOptions, 'Start', foreStartStruct);
     fprintf('done assigning clusters\n');
     [backmu, backSigma, backpi] = updateGaussian(params, backcluster, backpixels);
     [foremu, foreSigma, forepi] = updateGaussian(params, forecluster, forepixels);
-
+    fprintf('done updating gaussian\n');
 
 %     fgallclusters=assigncluster(params, im_data, squeeze(mu(2,:,:)), squeeze(sigma(2,:,:,:)), squeeze(pi(2,:)));
 %     bgallclusters=assigncluster(params, im_data, squeeze(mu(1,:,:)), squeeze(sigma(1,:,:,:)), squeeze(pi(1,:)));
@@ -183,22 +193,30 @@ for iter=1:10%bs stopping criteria
 %     [~,bgallcluster] = max(bgallclusters,[],2);
     bgallcluster = assignCluster(params, back_im_vec,backmu, backSigma, backpi);
     fgallcluster = assignCluster(params, fore_im_vec,foremu, foreSigma, forepi);
-
-    fprintf('\n\n\n\n');
-    [alpha energy] = updateAlphaChoices(params, back_im_data, fore_im_data, backmu, backSigma, backpi, foremu, foreSigma, forepi, fgallcluster, bgallcluster, smoothIndices, smoothWeights);
+    fprintf('done assigning every pixel a color\n');
+    
     form_im_data = true_im_data;
+    [alpha energy] = updateAlphaChoices(params, back_im_data, fore_im_data, backmu, backSigma, backpi, foremu, foreSigma, forepi, ...
+        fgallcluster, bgallcluster, smoothIndices, smoothWeights);
     form_im_data(logical(alpha==1),:) = 0;
     form_im_data = reshape(form_im_data, [params.height params.width params.numColors]);
-    imshow(form_im_data);
-    drawnow;
+    if beInteractive
+        imshow(form_im_data);
+        drawnow;
+    end
+    fprintf('\n\n\n\n');
 end
 toc
 
-figure();
 disp_im_data = true_im_data;
 disp_im_data(logical(alpha==1),:) = 0;
 disp_im_data = reshape(disp_im_data, [params.height params.width params.numColors]);
-imshow(disp_im_data);
+if beInteractive
+    figure();
+    imshow(disp_im_data);
+else
+    imwrite(disp_im_data, 'banana_segment.png', 'png');
+end
 
 try 
     gt_data = imread(sprintf('gt/%s',im_name));
