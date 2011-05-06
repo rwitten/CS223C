@@ -1,22 +1,66 @@
 function score = grabcut(im_name)
-im_name='ceramic.bmp';
+im_name='llama.bmp';
+
+%Constants and flags
+warning off all
 beInteractive = true; 
 useGMTools = true;
+superSharpEdges = true;
+useGT = true;
+eps = 1e-6;
+
+%Grab cut paramters
+params.K = 5;
+params.foreK = 10;
+params.backK = 10;
+params.numDirections = 8;
+params.gamma = 0;
+params.betaColCoeff = 2;
+params.superEdgeSharpness = 10;
+params.MaxIter = 1;
+params.initIter = 1;
+params.sharpAlpha = 0.2;
+
+%Read image and GT
 im_data = imread(sprintf('img/%s',im_name));
-%im_data = im_data(1:100,1:100,:);
-% % display the image
-% imagesc(im_data);
-% 
-% % a bounding box initialization
-
 [im_height, im_width, channel_num] = size(im_data);
+if (useGT)
+    try 
+        gt_data = imread(sprintf('gt/%s',im_name));
+        gt_alpha = gt_data == 255;
+        gt_alpha = reshape(gt_alpha, [numel(gt_alpha) 1]);
+    catch
+        gt_data = zeros(im_height, im_width);
+        gt_alpha = zeros(im_height*im_width,1);
+    end
+end
 
-if beInteractive
+%Image parameters
+params.numColors = channel_num;
+params.numPixels= im_height * im_width;
+params.height = im_height;
+params.width = im_width;
+
+if useGT && sum(gt_alpha) > 0
+    rowMax = max(gt_data, [], 1);
+    colMax = max(gt_data, [], 2);
+    xmin = find(rowMax, 1, 'first')-1;
+    xmax = find(rowMax, 1, 'last')+1;
+    ymin = find(colMax, 1, 'first')-1;
+    ymax = find(colMax, 1, 'last')+1;
+    
+    xmin = max(xmin, 1);
+    xmax = min(im_width, xmax);
+    ymin = max(ymin, 1);
+    ymax = min(im_height, ymax);
+elseif beInteractive
      disp('Draw a bounding box to specify the rough location of the foreground');
      set(gca,'Units','pixels');
      imshow(im_data)
      ginput(1);
-     p1=get(gca,'CurrentPoint');fr=rbbox;p2=get(gca,'CurrentPoint');
+     p1=get(gca,'CurrentPoint');
+     fr=rbbox;
+     p2=get(gca,'CurrentPoint');
      p=round([p1;p2]);
      xmin=min(p(:,1));xmax=max(p(:,1));
      ymin=min(p(:,2));ymax=max(p(:,2));
@@ -35,21 +79,6 @@ end
 bbox = [xmin ymin xmax ymax];
 %line(bbox([1 3 3 1 1]),bbox([2 2 4 4 2]),'Color',[1 0 0],'LineWidth',1);
 
-%Paramaters for functions
-params.K = 5;
-params.foreK = 5;
-params.backK = 8;
-params.numColors = channel_num;
-params.numPixels= im_height * im_width;
-params.height = im_height;
-params.width = im_width;
-params.numDirections = 8;
-params.gamma = 50;
-params.MaxIter = 1;
-params.initIter = 1;
-params.sharpAlpha = 0.2;
-eps = 1e-6;
-
 %%Process Image Data
 %convert the pixel values to [0,1] for each R G B channel.
 %true_im_data is for display
@@ -58,7 +87,7 @@ back_im_data = true_im_data;
 fore_im_data = true_im_data;
 edge_im_data = true_im_data;
 %Filter foreground image
-% h = gausswin(11);
+% h = fspecial('gaussian', [21,21], 25);
 % sharpGray = imfilter(double(rgb2gray(fore_im_data)), h, 'replicate');
 % normIm = rgb2gray(fore_im_data);
 % for i=1:params.numColors;
@@ -67,20 +96,26 @@ edge_im_data = true_im_data;
 % end
 
 %Filter edge weights image
-h = fspecial('unsharp', params.sharpAlpha);
-sharpGray = imfilter(double(rgb2gray(edge_im_data)), h, 'replicate');
-normIm = rgb2gray(edge_im_data);%squeeze(.30 * edge_im_data(:,:,1) + .59*edge_im_data(:,:,2) + .11*edge_im_data(:,:,3));
-for i=1:params.numColors;
-    edge_im_data(:,:,i) = edge_im_data(:,:,i) .* sharpGray./(eps+normIm);
-    %edge_im_data(:,:,i) = imfilter(edge_im_data(:,:,i), h, 'replicate');
+% h = fspecial('gaussian', [21,21], 30);
+% %fspecial('unsharp', params.sharpAlpha);
+% sharpGray = imfilter(double(rgb2gray(edge_im_data)), h, 'replicate');
+% normIm = rgb2gray(edge_im_data);%squeeze(.30 * edge_im_data(:,:,1) + .59*edge_im_data(:,:,2) + .11*edge_im_data(:,:,3));
+% for i=1:params.numColors;
+%     edge_im_data(:,:,i) = edge_im_data(:,:,i) .* sharpGray./(eps+normIm);
+%     %edge_im_data(:,:,i) = imfilter(edge_im_data(:,:,i), h, 'replicate');
+% end
+%Highlight edges
+if superSharpEdges
+    edges = edge(rgb2gray(true_im_data), 'prewitt');
+    edges = squeeze(reshape(edges, [im_height*im_width 1]));
 end
 
 %Reshape images
 true_im_data = reshape(true_im_data, [im_height*im_width 3]);
-back_im_data = reshape(back_im_data,  [im_height*im_width 3]);
+%back_im_data = reshape(back_im_data,  [im_height*im_width 3]);
 fore_im_data = reshape(fore_im_data,  [im_height*im_width 3]);
 edge_im_data = reshape(edge_im_data,  [im_height*im_width 3]); %Temporary, can use a different image for weighting edges
-%back_im_data = fore_im_data;
+back_im_data = fore_im_data;
 
 %Renormalize image data
 true_im_data = true_im_data - min(min(true_im_data));
@@ -92,7 +127,10 @@ fore_im_data = fore_im_data / max(max(fore_im_data));
 edge_im_data = edge_im_data - min(min(edge_im_data));
 edge_im_data = edge_im_data / max(max(edge_im_data));
 
-
+if superSharpEdges
+    edge_im_data(logical(edges),:) = params.superEdgeSharpness;
+    edge_im_data = edge_im_data / params.superEdgeSharpness;
+end
 
 %Create trimap, original alpha, and bounding box extractor array
 trimap = ones(params.height,params.width);
@@ -131,7 +169,7 @@ end
 
 nonZeroDiff = indexMat ~= 0;
 curDiffSq(~nonZeroDiff) = 0;
-beta = 1/(eps + 2*(numel(curDiffSq)/sum(sum(sum(nonZeroDiff))))*mean(mean(mean(curDiffSq))))
+beta = 1/(eps + params.betaColCoeff*mean(curDiffSq(nonZeroDiff)));
 weightsMat(:,:,:) = weightsMat(:,:,:) .* exp(-1*bsxfun(@times, curDiffSq, beta));
 smoothIndices = reshape(indexMat, [params.numPixels, params.numDirections]);
 smoothWeights = reshape(weightsMat, [params.numPixels, params.numDirections]);
@@ -170,7 +208,7 @@ end
 
 
 tic;
-for iter=1:10%bs stopping criteria
+for iter=1:20%bs stopping criteria
     
     fprintf('number of foreground pixels %d\n',sum(alpha==2));
     fprintf('we are on iteration %d\n', iter);
@@ -190,14 +228,23 @@ for iter=1:10%bs stopping criteria
     %foreStartStruct.PComponents = foreGMFit.PComponents;
 
     if useGMTools
-        startBackStruct.mu = backGMFit.mu;
-        startBackStruct.Sigma = backGMFit.Sigma;
-        startBackStruct.PComponents = backGMFit.PComponents;
-        startForeStruct.mu = foreGMFit.mu;
-        startForeStruct.Sigma = foreGMFit.Sigma;
-        startForeStruct.PComponents = foreGMFit.PComponents;
-        backGMFit = gmdistribution.fit(back_im_data(alpha==1,:),params.backK, 'Options', gmmOpts, 'Start', startBackStruct);
-        foreGMFit = gmdistribution.fit(fore_im_data(alpha==2,:),params.foreK, 'Options', gmmOpts, 'Start', startForeStruct);
+        if (params.backK > 1)
+            startBackStruct.mu(:,:) = backGMFit.mu;
+            startBackStruct.Sigma(:,:,:) = backGMFit.Sigma;
+            startBackStruct.PComponents = backGMFit.PComponents;
+            backGMFit = gmdistribution.fit(back_im_data(alpha==1,:),params.backK, 'Options', gmmOpts, 'Start', startBackStruct);
+        else
+            backGMFit = gmdistribution.fit(back_im_data(alpha==1,:),params.backK, 'Options', gmmOpts);      
+        end
+        if (params.foreK > 1)
+            startForeStruct.mu(:,:) = foreGMFit.mu;
+            startForeStruct.Sigma(:,:,:) = foreGMFit.Sigma;
+            startForeStruct.PComponents = foreGMFit.PComponents;
+            foreGMFit = gmdistribution.fit(fore_im_data(alpha==2,:),params.foreK, 'Options', gmmOpts, 'Start', startForeStruct);
+        else
+            foreGMFit = gmdistribution.fit(fore_im_data(alpha==2,:),params.foreK, 'Options', gmmOpts);
+        end
+        
         backmu = backGMFit.mu;
         backSigma = permute(backGMFit.Sigma, [3 1 2]);
         backpi = backGMFit.PComponents;
@@ -254,12 +301,9 @@ else
     imwrite(disp_im_data, 'banana_segment.png', 'png');
 end
 
-try 
-    gt_data = imread(sprintf('gt/%s',im_name));
-    gt_alpha = gt_data == 255;
-    gt_alpha = reshape(gt_alpha, [numel(gt_alpha) 1]);
+if useGT
     log_alpha = alpha==2;
     score = sum(gt_alpha & log_alpha) / sum(gt_alpha | log_alpha);
-catch
-    score = 0;
+else
+    score = 100;
 end
