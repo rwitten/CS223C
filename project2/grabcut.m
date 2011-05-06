@@ -1,30 +1,35 @@
-function score = grabcut(im_name)
-im_name='llama.bmp';
-
-%Constants and flags
+function score = grabcut(im_name, params)
 warning off all
-beInteractive = true; 
-useGMTools = true;
-superSharpEdges = true;
-useGT = true;
 eps = 1e-6;
 
-%Grab cut paramters
-params.K = 5;
-params.foreK = 10;
-params.backK = 10;
-params.numDirections = 8;
-params.gamma = 0;
-params.betaColCoeff = 2;
-params.superEdgeSharpness = 10;
-params.MaxIter = 1;
-params.initIter = 1;
-params.sharpAlpha = 0.2;
+if nargin < 1
+    im_name='llama.bmp';
+end
+
+if  nargin < 2
+    %Grab cut paramters
+    params.K = 5;
+    params.foreK = 5;
+    params.backK = 5;
+    params.numDirections = 8;
+    params.gamma = 0;
+    params.betaColCoeff = 2;
+    params.superEdgeSharpness = 10;
+    params.TotalIters = 20;
+    params.MaxIter = 1;
+    params.initIter = 1;
+    params.sharpAlpha = 0.2;
+    params.beInteractive = true;
+    params.useGMTools = true;
+    params.superSharpEdges = true;
+    params.useGT = true;
+end
+
 
 %Read image and GT
 im_data = imread(sprintf('img/%s',im_name));
 [im_height, im_width, channel_num] = size(im_data);
-if (useGT)
+if (params.useGT)
     try 
         gt_data = imread(sprintf('gt/%s',im_name));
         gt_alpha = gt_data == 255;
@@ -41,7 +46,7 @@ params.numPixels= im_height * im_width;
 params.height = im_height;
 params.width = im_width;
 
-if useGT && sum(gt_alpha) > 0
+if params.useGT && sum(gt_alpha) > 0
     rowMax = max(gt_data, [], 1);
     colMax = max(gt_data, [], 2);
     xmin = find(rowMax, 1, 'first')-1;
@@ -53,7 +58,7 @@ if useGT && sum(gt_alpha) > 0
     xmax = min(im_width, xmax);
     ymin = max(ymin, 1);
     ymax = min(im_height, ymax);
-elseif beInteractive
+elseif params.beInteractive
      disp('Draw a bounding box to specify the rough location of the foreground');
      set(gca,'Units','pixels');
      imshow(im_data)
@@ -105,7 +110,7 @@ edge_im_data = true_im_data;
 %     %edge_im_data(:,:,i) = imfilter(edge_im_data(:,:,i), h, 'replicate');
 % end
 %Highlight edges
-if superSharpEdges
+if params.superSharpEdges
     edges = edge(rgb2gray(true_im_data), 'prewitt');
     edges = squeeze(reshape(edges, [im_height*im_width 1]));
 end
@@ -127,7 +132,7 @@ fore_im_data = fore_im_data / max(max(fore_im_data));
 edge_im_data = edge_im_data - min(min(edge_im_data));
 edge_im_data = edge_im_data / max(max(edge_im_data));
 
-if superSharpEdges
+if params.superSharpEdges
     edge_im_data(logical(edges),:) = params.superEdgeSharpness;
     edge_im_data = edge_im_data / params.superEdgeSharpness;
 end
@@ -185,7 +190,7 @@ fprintf('*************************\n');
 fprintf('****grabcut algorithm****\n');
 fprintf('*************************\n\n\n\n');
 
-if useGMTools
+if params.useGMTools
     gmmOpts = statset(@gmdistribution);
     gmmOpts.MaxIter = params.initIter;
     backGMFit = gmdistribution.fit(back_im_data(alpha==1,:),params.backK, 'Options', gmmOpts);
@@ -208,7 +213,8 @@ end
 
 
 tic;
-for iter=1:20%bs stopping criteria
+energy = 0;
+for iter=1:params.TotalIters %bs stopping criteria
     
     fprintf('number of foreground pixels %d\n',sum(alpha==2));
     fprintf('we are on iteration %d\n', iter);
@@ -227,7 +233,7 @@ for iter=1:20%bs stopping criteria
     %foreStartStruct.Sigma = foreGMFit.Sigma;
     %foreStartStruct.PComponents = foreGMFit.PComponents;
 
-    if useGMTools
+    if params.useGMTools
         if (params.backK > 1)
             startBackStruct.mu(:,:) = backGMFit.mu;
             startBackStruct.Sigma(:,:,:) = backGMFit.Sigma;
@@ -269,7 +275,7 @@ for iter=1:20%bs stopping criteria
 %     bgallclusters=assigncluster(params, im_data, squeeze(mu(1,:,:)), squeeze(sigma(1,:,:,:)), squeeze(pi(1,:)));
 %     [~,fgallcluster] = max(fgallclusters,[],2);
 %     [~,bgallcluster] = max(bgallclusters,[],2);
-    if useGMTools
+    if params.useGMTools
         bgallcluster = cluster(backGMFit, back_im_data);
         fgallcluster = cluster(foreGMFit, fore_im_data);
     else
@@ -279,13 +285,17 @@ for iter=1:20%bs stopping criteria
     end
 
     form_im_data = true_im_data;
+    oldEnergy = energy;
     [alpha energy] = updateAlphaChoices(params, back_im_data, fore_im_data, backmu, backSigma, backpi, foremu, foreSigma, forepi, ...
         fgallcluster, bgallcluster, smoothIndices, smoothWeights);
     form_im_data(logical(alpha==1),:) = 0;
     form_im_data = reshape(form_im_data, [params.height params.width params.numColors]);
-    if beInteractive
+    if params.beInteractive
         imshow(form_im_data);
         drawnow;
+    end
+    
+    if (abs((oldEnergy - energy)/energy) < .001) break;
     end
     fprintf('\n\n\n\n');
 end
@@ -294,14 +304,14 @@ toc
 disp_im_data = true_im_data;
 disp_im_data(logical(alpha==1),:) = 0;
 disp_im_data = reshape(disp_im_data, [params.height params.width params.numColors]);
-if beInteractive
+if params.beInteractive
     figure();
     imshow(disp_im_data);
 else
     imwrite(disp_im_data, 'banana_segment.png', 'png');
 end
 
-if useGT
+if params.useGT
     log_alpha = alpha==2;
     score = sum(gt_alpha & log_alpha) / sum(gt_alpha | log_alpha);
 else
