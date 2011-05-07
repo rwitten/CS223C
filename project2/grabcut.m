@@ -23,6 +23,7 @@ if  nargin < 2
     params.useGMTools = true;
     params.superSharpEdges = true;
     params.useGT = true;
+    params.innerIters = 1;
 end
 
 
@@ -46,7 +47,7 @@ params.numPixels= im_height * im_width;
 params.height = im_height;
 params.width = im_width;
 
-if params.useGT && sum(gt_alpha) > 0
+if params.useGT && sum(gt_alpha) > 0 && 0== params.beInteractive %if told to be interactive we should be
     rowMax = max(gt_data, [], 1);
     colMax = max(gt_data, [], 2);
     xmin = find(rowMax, 1, 'first')-1;
@@ -140,6 +141,7 @@ end
 %Create trimap, original alpha, and bounding box extractor array
 trimap = ones(params.height,params.width);
 trimap(ymin:ymax,xmin:xmax) = 3;
+
 trimap = reshape(trimap, [params.numPixels 1]);
 alpha = (trimap==3)+1;
 params.unknownInd = alpha==2;
@@ -300,17 +302,15 @@ for iter=1:params.TotalIters %bs stopping criteria
     else
         backpixels = back_im_data(logical(alpha==1),:);
         forepixels = fore_im_data(logical(alpha==2),:);
-        fprintf('done getting pixels\n');
-        [backcluster] = assignCluster(params.backK,backpixels,backmu,backSigma, backpi);   
-        [forecluster] = assignCluster(params.foreK,forepixels,foremu,foreSigma, forepi);
-        %backGMFit = gmdistribution.fit(back_im_data(alpha==1,:), params.K, 'Options', gmmOptions, 'Start', backStartStruct);
-        %foreGMFit = gmdistribution.fit(fore_im_data(alpha==2,:), params.K, 'Options', gmmOptions, 'Start', foreStartStruct);
-        fprintf('done assigning clusters\n');
-        [backmu, backSigma, backpi] = updateGaussian(params, params.backK, backcluster, backpixels);
-        [foremu, foreSigma, forepi] = updateGaussian(params, params.foreK, forecluster, forepixels);
-        backpi'
-        forepi'
-        fprintf('done updating gaussian\n');
+	for subiter= 1:params.innerIters
+            fprintf('done getting pixels\n');
+            [backcluster] = assignCluster(params.backK,backpixels,backmu,backSigma, ones(params.backK,1));%argh don't cahnge this
+            [forecluster] = assignCluster(params.foreK,forepixels,foremu,foreSigma, ones(params.foreK,1));%argh don't change this
+            fprintf('done assigning clusters\n');
+            [backmu, backSigma, backpi] = updateGaussian(params, params.backK, backcluster, backpixels);
+            [foremu, foreSigma, forepi] = updateGaussian(params, params.foreK, forecluster, forepixels);
+            fprintf('done updating gaussian\n');
+        end
     end
 
 %     fgallclusters=assigncluster(params, im_data, squeeze(mu(2,:,:)), squeeze(sigma(2,:,:,:)), squeeze(pi(2,:)));

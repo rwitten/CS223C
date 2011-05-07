@@ -1,7 +1,7 @@
 function [] = gmmTester( )
     gmmOptions = statset(@gmdistribution);
     gmmOptions.MaxIter = 1000;
-    K= 5; %number of mixtures
+    K= 2; %number of mixtures
     n = 2; %dimensionality
     maxsamples = 100;
 
@@ -28,8 +28,8 @@ function [] = gmmTester( )
     params.numColors = n;
     for i=1:100,
         disp 'iteration!'
-        sampleclusters = assignCluster(params, samples, mu, sigma,ones(K,1)/K);
-        [mu,sigma,pi]=updateGaussian(params, sampleclusters, samples);
+        sampleclusters = assignCluster(params.K, samples, mu, sigma,ones(K,1)/K);
+        [mu,sigma,pi]=updateGaussian(params, params.K,sampleclusters, samples);
 %          mu(1,:)
 %          squeeze(sigma(1,:,:))
 %          mu(2,:)

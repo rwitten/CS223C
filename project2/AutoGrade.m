@@ -17,7 +17,7 @@ params.beInteractive = false;
 params.useGMTools = false;
 params.superSharpEdges = true;
 params.useGT = true;
-
+params.innerIters = 1;
 totalScore = 0;
 for i = 1:length(imageNames)
     fprintf(imageNames{i});
