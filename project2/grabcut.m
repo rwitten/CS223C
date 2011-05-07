@@ -203,12 +203,27 @@ if params.useGMTools
     forepi = foreGMFit.PComponents;
     gmmOpts.MaxIter = params.MaxIter;
 else
-    backmu = rand(params.backK, params.numColors);
-    backSigma = squeeze(makePositiveSemiD(1, params.backK, params.numColors));
-    backpi = 1/params.backK * ones(params.K,1);
-    foremu = rand(params.foreK, params.numColors);
-    foreSigma = squeeze(makePositiveSemiD(1, params.foreK, params.numColors));
-    forepi = 1/params.foreK * ones(params.K,1);
+%     backmu = rand(params.backK, params.numColors);
+%     backSigma = squeeze(makePositiveSemiD(1, params.backK, params.numColors));
+%     backpi = 1/params.backK * ones(params.K,1);
+%     foremu = rand(params.foreK, params.numColors);
+%     foreSigma = squeeze(makePositiveSemiD(1, params.foreK, params.numColors));
+%     forepi = 1/params.foreK * ones(params.K,1);
+    backpixels = back_im_data(alpha==1);
+    backClusValues = (1:size(backpixels,1))/size(backpixels,1);
+    backcluster = ones(size(backpixels,1),1)';
+    for i = 1:params.backK-1
+        backcluster = backcluster + (backClusValues > i/params.backK);
+    end
+    forepixels = fore_im_data(alpha==2);
+    foreClusValues = (1:size(forepixels,1))/size(forepixels,1);
+    forecluster = ones(size(forepixels,1),1)';
+    for i = 1:params.foreK-1
+        forecluster = forecluster + (foreClusValues > i/params.foreK);
+    end
+    [backmu, backSigma, backpi] = updateGaussian(params, params.backK, backcluster, backpixels);
+    [foremu, foreSigma, forepi] = updateGaussian(params, params.foreK, forecluster, forepixels);
+
 end
 
 
@@ -235,18 +250,20 @@ for iter=1:params.TotalIters %bs stopping criteria
 
     newBackK = false;
     newForeK = false;
-    if sum( backpi < 1 / (2*params.backK) > 0)
+    backCutoff = min(1 / (2*params.backK), 0.1);
+    foreCutoff = min(1 / (2*params.foreK), 0.1);
+    if sum( (backpi < backCutoff) > 0)
         newBackK = true;
-        remInd = find(backpi < 1 / (2*params.backK) > 0, 1, 'first');
+        remInd = find((backpi < backCutoff) > 0, 1, 'first');
         goodIndices = [1:(remInd-1) (remInd+1):params.backK];
         backmu = backmu(goodIndices,:);
         backSigma = backSigma(goodIndices,:,:);
         backpi = backpi(goodIndices);
         params.backK = params.backK - 1;
     end
-    if sum( forepi < 1 / (2*params.foreK) > 0)
+    if sum( (forepi < foreCutoff) > 0)
         newForeK = true;
-        remInd = find(forepi < 1 / (2*params.foreK) > 0, 1, 'first');
+        remInd = find((forepi < foreCutoff) > 0, 1, 'first');
         goodIndices = [1:(remInd-1) (remInd+1):params.foreK];
         foremu = foremu(goodIndices,:);
         foreSigma = foreSigma(goodIndices,:,:);
@@ -284,7 +301,7 @@ for iter=1:params.TotalIters %bs stopping criteria
         backpixels = back_im_data(logical(alpha==1),:);
         forepixels = fore_im_data(logical(alpha==2),:);
         fprintf('done getting pixels\n');
-        [backcluster] = assignCluster(params.backK,backpixels,backmu,backSigma, ones(params.K,1));   
+        [backcluster] = assignCluster(params.backK,backpixels,backmu,backSigma, backpi);   
         [forecluster] = assignCluster(params.foreK,forepixels,foremu,foreSigma, forepi);
         %backGMFit = gmdistribution.fit(back_im_data(alpha==1,:), params.K, 'Options', gmmOptions, 'Start', backStartStruct);
         %foreGMFit = gmdistribution.fit(fore_im_data(alpha==2,:), params.K, 'Options', gmmOptions, 'Start', foreStartStruct);
