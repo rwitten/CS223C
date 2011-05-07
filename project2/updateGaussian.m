@@ -17,7 +17,7 @@ function [mu, sigma, pi] = updateGaussian(params, K, clusters, pixels)
             sigma(k,:,:)= eye(params.numColors)*1e-2 +ninv*unbiased_pixels' *  unbiased_pixels;
             %sigma(k,:,:) = eye(params.numColors);
         else
-            pi(k) = 0;
+            pi(k) = 1/K;
             mu(k,:) = pixels(floor(rand()*size(pixels,1))+1, :);
             sigma(k,:,:) = 1e-10 * eye(params.numColors);
         end

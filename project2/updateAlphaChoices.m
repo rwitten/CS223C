@@ -3,8 +3,8 @@ function [alpha energy] = updateAlphaChoices(params, back_im_data, fore_im_data,
 %Find elements in the equation
 backlogpi = log(backpi);
 forelogpi = log(forepi);
-backDetSigma = zeros(size(backSigma,1));
-foreDetSigma = zeros(size(foreSigma,1));
+backDetSigma = zeros(size(backSigma,1),1);
+foreDetSigma = zeros(size(foreSigma,1),1);
 backInvSigma = zeros(size(backSigma));
 foreInvSigma = zeros(size(foreSigma));
 for i = 1:size(backDetSigma,1)
@@ -15,8 +15,8 @@ for i = 1:size(foreDetSigma,1)
     foreDetSigma(i) = det(squeeze(foreSigma(i,:,:)));
     foreInvSigma(i,:,:) = inv(squeeze(foreSigma(i,:,:)));
 end
-backLogDetSigma = log(backDetSigma);
-foreLogDetSigma = log(foreDetSigma);
+backLogDetSigma = log(backDetSigma)';
+foreLogDetSigma = log(foreDetSigma)';
 
 
 backWeights = zeros(params.numPixels,1);
