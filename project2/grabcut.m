@@ -3,7 +3,7 @@ warning off all
 eps = 1e-6;
 
 if nargin < 1
-    im_name='llama.bmp';
+    im_name='person5.bmp';
 end
 
 if  nargin < 2
@@ -231,6 +231,17 @@ end
 
 tic;
 energy = 0;
+backDetSigma = zeros(size(backSigma,1),1);
+foreDetSigma = zeros(size(foreSigma,1),1);
+for i = 1:size(backDetSigma,1)
+    backDetSigma(i) = det(squeeze(backSigma(i,:,:)));
+end
+for i = 1:size(foreDetSigma,1)
+    foreDetSigma(i) = det(squeeze(foreSigma(i,:,:)));
+end
+backLogDetSigma = log(backDetSigma)'
+foreLogDetSigma = log(foreDetSigma)'
+
 for iter=1:params.TotalIters %bs stopping criteria
     
     fprintf('number of foreground pixels %d\n',sum(alpha==2));
@@ -272,9 +283,27 @@ for iter=1:params.TotalIters %bs stopping criteria
         forepi = forepi(goodIndices);
         params.foreK = params.foreK - 1;
     end
+    if sum( backLogDetSigma == inf | backLogDetSigma == -inf | ~isreal(backLogDetSigma) > 0)
+        newBackK = true;
+        remInd = find(backLogDetSigma == inf | backLogDetSigma == -inf | ~isreal(backLogDetSigma), 1, 'first');
+        goodIndices = [1:(remInd-1) (remInd+1):params.backK];
+        backmu = backmu(goodIndices,:);
+        backSigma = backSigma(goodIndices,:,:);
+        backpi = backpi(goodIndices);
+        params.backK = params.backK - 1;
+    end
+    if sum(foreLogDetSigma == inf | foreLogDetSigma == -inf | ~isreal(foreLogDetSigma) > 0)
+        newForeK = true;
+        remInd = find(foreLogDetSigma == inf | foreLogDetSigma == -inf | ~isreal(foreLogDetSigma) > 0, 1, 'first');
+        goodIndices = [1:(remInd-1) (remInd+1):params.foreK];
+        foremu = foremu(goodIndices,:);
+        foreSigma = foreSigma(goodIndices,:,:);
+        forepi = forepi(goodIndices);
+        params.foreK = params.foreK - 1;
+    end
     
     if params.useGMTools
-        if (params.backK > 1 && ~newBackK)
+        if (params.backK > 1)
             clear startBackStruct;
             startBackStruct.mu(:,:) = backmu;
             startBackStruct.Sigma(:,:,:) = permute(backSigma, [2 3 1]);
@@ -283,7 +312,7 @@ for iter=1:params.TotalIters %bs stopping criteria
         else
             backGMFit = gmdistribution.fit(back_im_data(alpha==1,:),params.backK, 'Options', gmmOpts);      
         end
-        if (params.foreK > 1 && ~newForeK)
+        if (params.foreK > 1)
             clear startForeStruct;
             startForeStruct.mu(:,:) = foremu;
             startForeStruct.Sigma(:,:,:) = permute(foreSigma, [2 3 1]);
@@ -313,18 +342,30 @@ for iter=1:params.TotalIters %bs stopping criteria
         end
     end
 
+    %For output
+    backDetSigma = zeros(size(backSigma,1),1);
+    foreDetSigma = zeros(size(foreSigma,1),1);
+    for i = 1:size(backDetSigma,1)
+        backDetSigma(i) = det(squeeze(backSigma(i,:,:)));
+    end
+    for i = 1:size(foreDetSigma,1)
+        foreDetSigma(i) = det(squeeze(foreSigma(i,:,:)));
+    end
+    backLogDetSigma = log(backDetSigma)'
+    foreLogDetSigma = log(foreDetSigma)'
+    
 %     fgallclusters=assigncluster(params, im_data, squeeze(mu(2,:,:)), squeeze(sigma(2,:,:,:)), squeeze(pi(2,:)));
 %     bgallclusters=assigncluster(params, im_data, squeeze(mu(1,:,:)), squeeze(sigma(1,:,:,:)), squeeze(pi(1,:)));
 %     [~,fgallcluster] = max(fgallclusters,[],2);
 %     [~,bgallcluster] = max(bgallclusters,[],2);
-    if params.useGMTools
-        bgallcluster = cluster(backGMFit, back_im_data);
-        fgallcluster = cluster(foreGMFit, fore_im_data);
-    else
+%     if params.useGMTools
+%         bgallcluster = cluster(backGMFit, back_im_data);
+%         fgallcluster = cluster(foreGMFit, fore_im_data);
+%     else
         bgallcluster = assignCluster(params.backK, back_im_data,backmu, backSigma, backpi);
         fgallcluster = assignCluster(params.foreK, fore_im_data,foremu, foreSigma, forepi);
-        fprintf('done assigning every pixel a color\n');
-    end
+%         fprintf('done assigning every pixel a color\n');
+%     end
 
     form_im_data = true_im_data;
     oldEnergy = energy;
