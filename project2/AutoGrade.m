@@ -14,12 +14,14 @@ params.MaxIter = 1;
 params.initIter = 1;
 params.sharpAlpha = 0.2;
 params.beInteractive = false;
-params.useGMTools = true;
+params.useGMTools = false;
 params.superSharpEdges = true;
 params.useGT = true;
 
 totalScore = 0;
 for i = 1:length(imageNames)
+    fprintf(imageNames{i});
+    fprintf('\n');
     curScore = grabcut(imageNames{i}, params);
     totalScore = totalScore + curScore;
 end

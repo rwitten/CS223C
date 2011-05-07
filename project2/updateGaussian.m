@@ -1,9 +1,9 @@
-function [mu, sigma, pi] = updateGaussian(params, clusters, pixels)
-    mu = zeros(params.K, params.numColors);
-    sigma = zeros(params.K, params.numColors, params.numColors);
-    pi = zeros(params.K,1);
+function [mu, sigma, pi] = updateGaussian(params, K, clusters, pixels)
+    mu = zeros(K, params.numColors);
+    sigma = zeros(K, params.numColors, params.numColors);
+    pi = zeros(K,1);
     
-    for k = 1:params.K,
+    for k = 1:K,
         cluster_pixels = pixels(logical(clusters==k),:);
         
         if sum(clusters==k)>=1
