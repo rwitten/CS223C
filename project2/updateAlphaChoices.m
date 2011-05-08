@@ -34,8 +34,8 @@ for i = 1:params.foreK
         0.5 * sum(forePixelDiff * squeeze(foreInvSigma(i,:,:)) .* forePixelDiff,2);
 end
 
-backWeights(~params.unknownInd) = -inf;
-foreWeights(~params.unknownInd) = inf;
+% backWeights(~params.unknownInd) = -1e13;
+% foreWeights(~params.unknownInd) = 1e13;
 
 [alpha energy] = mexmaxflow(-1*backWeights, -1*foreWeights, smoothIndices, -1*smoothWeights);
 alpha = alpha+1;

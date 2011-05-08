@@ -3,19 +3,19 @@ warning off all
 eps = 1e-6;
 
 if nargin < 1
-    im_name='person5.bmp';
+    im_name='scissors.bmp';
 end
 
 if  nargin < 2
     %Grab cut paramters
     params.K = 5;
-    params.foreK = 5;
-    params.backK = 5;
+    params.foreK = 10;
+    params.backK = 10;
     params.numDirections = 8;
-    params.gamma = 0;
+    params.gamma = 50;
     params.betaColCoeff = 2;
     params.superEdgeSharpness = 10;
-    params.TotalIters = 20;
+    params.TotalIters = 30;
     params.MaxIter = 1;
     params.initIter = 1;
     params.sharpAlpha = 0.2;
@@ -24,6 +24,10 @@ if  nargin < 2
     params.superSharpEdges = true;
     params.useGT = true;
     params.innerIters = 1;
+    params.shrinkK = true;
+    params.clusterSwitch = true;
+    params.mergeCutoff = 5e2;
+    params.switchCutoff = 5e2;
 end
 
 
@@ -93,26 +97,26 @@ back_im_data = true_im_data;
 fore_im_data = true_im_data;
 edge_im_data = true_im_data;
 %Filter foreground image
-% h = fspecial('gaussian', [21,21], 25);
-% sharpGray = imfilter(double(rgb2gray(fore_im_data)), h, 'replicate');
-% normIm = rgb2gray(fore_im_data);
-% for i=1:params.numColors;
-%     fore_im_data(:,:,i) = fore_im_data(:,:,i) .* sharpGray./(eps+normIm);
-%     %back_im_data(:,:,i) = imfilter(true_im_data(:,:,i), h, 'replicate');
-% end
+h = fspecial('gaussian', [11,11], 50);
+sharpGray = imfilter(double(rgb2gray(fore_im_data)), h, 'replicate');
+normIm = rgb2gray(fore_im_data);
+for i=1:params.numColors;
+    fore_im_data(:,:,i) = fore_im_data(:,:,i) .* sharpGray./(eps+normIm);
+    %back_im_data(:,:,i) = imfilter(true_im_data(:,:,i), h, 'replicate');
+end
 
 %Filter edge weights image
-% h = fspecial('gaussian', [21,21], 30);
-% %fspecial('unsharp', params.sharpAlpha);
-% sharpGray = imfilter(double(rgb2gray(edge_im_data)), h, 'replicate');
-% normIm = rgb2gray(edge_im_data);%squeeze(.30 * edge_im_data(:,:,1) + .59*edge_im_data(:,:,2) + .11*edge_im_data(:,:,3));
-% for i=1:params.numColors;
-%     edge_im_data(:,:,i) = edge_im_data(:,:,i) .* sharpGray./(eps+normIm);
-%     %edge_im_data(:,:,i) = imfilter(edge_im_data(:,:,i), h, 'replicate');
-% end
+h = fspecial('gaussian', [11,11], 50);
+%fspecial('unsharp', params.sharpAlpha);
+sharpGray = imfilter(double(rgb2gray(edge_im_data)), h, 'replicate');
+normIm = rgb2gray(edge_im_data);%squeeze(.30 * edge_im_data(:,:,1) + .59*edge_im_data(:,:,2) + .11*edge_im_data(:,:,3));
+for i=1:params.numColors;
+    edge_im_data(:,:,i) = edge_im_data(:,:,i) .* sharpGray./(eps+normIm);
+    %edge_im_data(:,:,i) = imfilter(edge_im_data(:,:,i), h, 'replicate');
+end
 %Highlight edges
 if params.superSharpEdges
-    edges = edge(rgb2gray(true_im_data), 'prewitt');
+    edges = edge(rgb2gray(true_im_data), 'canny');
     edges = squeeze(reshape(edges, [im_height*im_width 1]));
 end
 
@@ -239,8 +243,8 @@ end
 for i = 1:size(foreDetSigma,1)
     foreDetSigma(i) = det(squeeze(foreSigma(i,:,:)));
 end
-backLogDetSigma = log(backDetSigma)'
-foreLogDetSigma = log(foreDetSigma)'
+backLogDetSigma = log(backDetSigma)';
+foreLogDetSigma = log(foreDetSigma)';
 
 for iter=1:params.TotalIters %bs stopping criteria
     
@@ -260,50 +264,9 @@ for iter=1:params.TotalIters %bs stopping criteria
     %foreStartStruct.mu = foreGMFit.mu;
     %foreStartStruct.Sigma = foreGMFit.Sigma;
     %foreStartStruct.PComponents = foreGMFit.PComponents;
-
-    newBackK = false;
-    newForeK = false;
-    backCutoff = min(1 / (2*params.backK), 0.1);
-    foreCutoff = min(1 / (2*params.foreK), 0.1);
-    if sum( (backpi < backCutoff) > 0)
-        newBackK = true;
-        remInd = find((backpi < backCutoff) > 0, 1, 'first');
-        goodIndices = [1:(remInd-1) (remInd+1):params.backK];
-        backmu = backmu(goodIndices,:);
-        backSigma = backSigma(goodIndices,:,:);
-        backpi = backpi(goodIndices);
-        params.backK = params.backK - 1;
-    end
-    if sum( (forepi < foreCutoff) > 0)
-        newForeK = true;
-        remInd = find((forepi < foreCutoff) > 0, 1, 'first');
-        goodIndices = [1:(remInd-1) (remInd+1):params.foreK];
-        foremu = foremu(goodIndices,:);
-        foreSigma = foreSigma(goodIndices,:,:);
-        forepi = forepi(goodIndices);
-        params.foreK = params.foreK - 1;
-    end
-    if sum( backLogDetSigma == inf | backLogDetSigma == -inf | ~isreal(backLogDetSigma) > 0)
-        newBackK = true;
-        remInd = find(backLogDetSigma == inf | backLogDetSigma == -inf | ~isreal(backLogDetSigma), 1, 'first');
-        goodIndices = [1:(remInd-1) (remInd+1):params.backK];
-        backmu = backmu(goodIndices,:);
-        backSigma = backSigma(goodIndices,:,:);
-        backpi = backpi(goodIndices);
-        params.backK = params.backK - 1;
-    end
-    if sum(foreLogDetSigma == inf | foreLogDetSigma == -inf | ~isreal(foreLogDetSigma) > 0)
-        newForeK = true;
-        remInd = find(foreLogDetSigma == inf | foreLogDetSigma == -inf | ~isreal(foreLogDetSigma) > 0, 1, 'first');
-        goodIndices = [1:(remInd-1) (remInd+1):params.foreK];
-        foremu = foremu(goodIndices,:);
-        foreSigma = foreSigma(goodIndices,:,:);
-        forepi = forepi(goodIndices);
-        params.foreK = params.foreK - 1;
-    end
     
     if params.useGMTools
-        if (params.backK > 1)
+        if (params.backK > 1 && sum(isreal(backLogDetSigma)) == 0)
             clear startBackStruct;
             startBackStruct.mu(:,:) = backmu;
             startBackStruct.Sigma(:,:,:) = permute(backSigma, [2 3 1]);
@@ -312,7 +275,7 @@ for iter=1:params.TotalIters %bs stopping criteria
         else
             backGMFit = gmdistribution.fit(back_im_data(alpha==1,:),params.backK, 'Options', gmmOpts);      
         end
-        if (params.foreK > 1)
+        if (params.foreK > 1 && sum(isreal(foreLogDetSigma)) == 0)
             clear startForeStruct;
             startForeStruct.mu(:,:) = foremu;
             startForeStruct.Sigma(:,:,:) = permute(foreSigma, [2 3 1]);
@@ -331,7 +294,7 @@ for iter=1:params.TotalIters %bs stopping criteria
     else
         backpixels = back_im_data(logical(alpha==1),:);
         forepixels = fore_im_data(logical(alpha==2),:);
-	for subiter= 1:params.innerIters
+        for subiter= 1:params.innerIters
             fprintf('done getting pixels\n');
             [backcluster] = assignCluster(params.backK,backpixels,backmu,backSigma, ones(params.backK,1));%argh don't cahnge this
             [forecluster] = assignCluster(params.foreK,forepixels,foremu,foreSigma, ones(params.foreK,1));%argh don't change this
@@ -341,18 +304,117 @@ for iter=1:params.TotalIters %bs stopping criteria
             fprintf('done updating gaussian\n');
         end
     end
+    
+    
+    %Prune clusters
+    newMerge = false;
+    
+    if (params.clusterSwitch && params.foreK > 1 && iter > min(params.TotalIters/3,10))
+        lMat = ones(params.foreK, params.backK);
+%         for i=1:params.foreK
+%             offset = bsxfun(@minus, backmu, foremu(i,:));
+%             lMat(i,:) = sum(offset*squeeze(foreSigma(i,:,:)).*offset,2);
+%         end
+        for i=1:params.backK
+            offset = bsxfun(@minus, foremu, backmu(i,:));
+            lMat(:,i) = lMat(:,i) .*  sum(offset*squeeze(backSigma(i,:,:)).*offset,2);
+        end
+        lMat = 1./lMat;
+        
+        [switchVals,~] = max(lMat,[],2);
+        [switchVal, switchInd] = max(switchVals);
+        meanVal = median(lMat(true(size(lMat))));
+        compVal = mean(lMat(lMat < 1.5*meanVal));
+        switchVal/compVal
+        if (isinf(switchVal) || switchVal/compVal > params.switchCutoff)
+            newMerge = true;
+            goodIndices = [1:(switchInd-1) (switchInd+1):params.foreK];
+            foremu = foremu(goodIndices,:);
+            foreSigma = foreSigma(goodIndices,:,:);
+            forepi = forepi(goodIndices);
+            forepi = forepi/sum(forepi);
+            params.foreK = params.foreK - 1;
+        end
+    end
+
+    if params.shrinkK && ~newMerge
+        if params.foreK > 1 && iter > 2
+            lMat = ones(params.foreK);
+            for i=1:params.foreK
+                offset = bsxfun(@minus, foremu, foremu(i,:));
+                lMat(:,i) = lMat(:,i) .*  sum(offset*squeeze(foreSigma(i,:,:)).*offset,2);
+                lMat(i,:) = lMat(i,:) .*  sum(offset*squeeze(foreSigma(i,:,:)).*offset,2)';
+            end
+            lMat = 1./lMat;
+            lMat(logical(eye(params.foreK))) = 0;
+            lMat = sqrt(lMat);
+            
+            [mergeVals, mergeInds] = max(lMat);
+            [mergeVal, mergeInd1] = max(mergeVals);
+            mergeInd2 = mergeInds(mergeInd1);
+            meanVal = median((lMat(logical(ones(params.foreK) - eye(params.foreK)))));
+            compVal = mean(lMat(lMat < 1.5*meanVal & lMat > 0));
+            mergeVal/compVal
+            if (isinf(mergeVal) || mergeVal/compVal > params.mergeCutoff)
+                if forepi(mergeInd1) > forepi(mergeInd2)
+                   mergeInd = mergeInd2;
+                else
+                   mergeInd = mergeInd1; 
+                end
+                newForeK = true;
+                goodIndices = [1:(mergeInd-1) (mergeInd+1):params.foreK];
+                foremu = foremu(goodIndices,:);
+                foreSigma = foreSigma(goodIndices,:,:);
+                forepi = forepi(goodIndices);
+                forepi = forepi/sum(forepi);
+                params.foreK = params.foreK - 1;
+            end
+        end
+        if params.backK > 1 && iter > 2
+            lMat = ones(params.backK);
+            for i=1:params.backK
+                offset = bsxfun(@minus, backmu, backmu(i,:));
+                lMat(:,i) = lMat(:,i) .*  sum(offset*squeeze(backSigma(i,:,:)).*offset,2);
+                lMat(i,:) = lMat(i,:) .*  sum(offset*squeeze(backSigma(i,:,:)).*offset,2)';
+            end
+            lMat = 1./lMat;
+            lMat(logical(eye(params.backK))) = 0;
+            lMat = sqrt(lMat);
+           
+            [mergeVals, mergeInds] = max(lMat);
+            [mergeVal, mergeInd1] = max(mergeVals);
+            mergeInd2 = mergeInds(mergeInd1);
+            meanVal = median((lMat(logical(ones(params.backK) - eye(params.backK)))));
+            compVal = mean(lMat(lMat < 1.5*meanVal & lMat > 0));
+            mergeVal/compVal
+            if (isinf(mergeVal) || mergeVal/compVal > params.mergeCutoff)
+                if backpi(mergeInd1) > backpi(mergeInd2)
+                   mergeInd = mergeInd2;
+                else
+                   mergeInd = mergeInd1; 
+                end
+                newBackK = true;
+                goodIndices = [1:(mergeInd-1) (mergeInd+1):params.backK];
+                backmu = backmu(goodIndices,:);
+                backSigma = backSigma(goodIndices,:,:);
+                backpi = backpi(goodIndices);
+                backpi = backpi/sum(backpi);
+                params.backK = params.backK - 1;
+            end
+        end
+    end
 
     %For output
     backDetSigma = zeros(size(backSigma,1),1);
     foreDetSigma = zeros(size(foreSigma,1),1);
     for i = 1:size(backDetSigma,1)
-        backDetSigma(i) = det(squeeze(backSigma(i,:,:)));
+        backDetSigma(i) = det(inv(squeeze(backSigma(i,:,:))));
     end
     for i = 1:size(foreDetSigma,1)
-        foreDetSigma(i) = det(squeeze(foreSigma(i,:,:)));
+        foreDetSigma(i) = det(inv(squeeze(foreSigma(i,:,:))));
     end
-    backLogDetSigma = log(backDetSigma)'
-    foreLogDetSigma = log(foreDetSigma)'
+    backLogDetSigma = log(backDetSigma)';
+    foreLogDetSigma = log(foreDetSigma)';
     
 %     fgallclusters=assigncluster(params, im_data, squeeze(mu(2,:,:)), squeeze(sigma(2,:,:,:)), squeeze(pi(2,:)));
 %     bgallclusters=assigncluster(params, im_data, squeeze(mu(1,:,:)), squeeze(sigma(1,:,:,:)), squeeze(pi(1,:)));
@@ -378,7 +440,7 @@ for iter=1:params.TotalIters %bs stopping criteria
         drawnow;
     end
     
-    if (abs((oldEnergy - energy)/energy) < .001) break;
+    if (abs((oldEnergy - energy)/energy) < .0001) break;
     end
     fprintf('\n\n\n\n');
 end
