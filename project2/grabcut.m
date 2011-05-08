@@ -311,15 +311,15 @@ for iter=1:params.TotalIters %bs stopping criteria
     
     if (params.clusterSwitch && params.foreK > 1 && iter > min(params.TotalIters/3,10))
         lMat = ones(params.foreK, params.backK);
-%         for i=1:params.foreK
-%             offset = bsxfun(@minus, backmu, foremu(i,:));
-%             lMat(i,:) = sum(offset*squeeze(foreSigma(i,:,:)).*offset,2);
-%         end
+        for i=1:params.foreK
+            offset = bsxfun(@minus, backmu, foremu(i,:));
+            lMat(i,:) = sum(offset*squeeze(foreSigma(i,:,:)).*offset,2);
+        end
         for i=1:params.backK
             offset = bsxfun(@minus, foremu, backmu(i,:));
             lMat(:,i) = lMat(:,i) .*  sum(offset*squeeze(backSigma(i,:,:)).*offset,2);
         end
-        lMat = 1./lMat;
+        lMat = sqrt(1./lMat);
         
         [switchVals,~] = max(lMat,[],2);
         [switchVal, switchInd] = max(switchVals);
