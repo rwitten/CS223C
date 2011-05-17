@@ -3,14 +3,14 @@ warning off all
 eps = 1e-6;
 
 if nargin < 1
-    im_name='scissors.bmp';
+    im_name='ceramic.bmp';
 end
 
 if  nargin < 2
     %Grab cut paramters
     params.K = 5;
-    params.foreK = 10;
-    params.backK = 10;
+    params.foreK = 5;
+    params.backK = 5;
     params.numDirections = 8;
     params.gamma = 50;
     params.betaColCoeff = 2;
@@ -23,7 +23,7 @@ if  nargin < 2
     params.useGMTools = true;
     params.superSharpEdges = true;
     params.useGT = true;
-    params.innerIters = 1;
+    params.innerIters = 2;
     params.shrinkK = true;
     params.clusterSwitch = true;
     params.mergeCutoff = 5e2;
@@ -97,16 +97,16 @@ back_im_data = true_im_data;
 fore_im_data = true_im_data;
 edge_im_data = true_im_data;
 %Filter foreground image
-h = fspecial('gaussian', [11,11], 50);
-sharpGray = imfilter(double(rgb2gray(fore_im_data)), h, 'replicate');
-normIm = rgb2gray(fore_im_data);
-for i=1:params.numColors;
-    fore_im_data(:,:,i) = fore_im_data(:,:,i) .* sharpGray./(eps+normIm);
-    %back_im_data(:,:,i) = imfilter(true_im_data(:,:,i), h, 'replicate');
-end
+% h = fspecial('gaussian', [21,21], 50);
+% sharpGray = imfilter(double(rgb2gray(fore_im_data)), h, 'replicate');
+% normIm = rgb2gray(fore_im_data);
+% for i=1:params.numColors;
+%     fore_im_data(:,:,i) = fore_im_data(:,:,i) .* sharpGray./(eps+normIm);
+%     %back_im_data(:,:,i) = imfilter(true_im_data(:,:,i), h, 'replicate');
+% end
 
 %Filter edge weights image
-h = fspecial('gaussian', [11,11], 50);
+h = fspecial('gaussian', [21,21], 50);
 %fspecial('unsharp', params.sharpAlpha);
 sharpGray = imfilter(double(rgb2gray(edge_im_data)), h, 'replicate');
 normIm = rgb2gray(edge_im_data);%squeeze(.30 * edge_im_data(:,:,1) + .59*edge_im_data(:,:,2) + .11*edge_im_data(:,:,3));
