@@ -21,40 +21,52 @@ for i=1:params.num_classes
     totalLabels = [totalLabels; i*ones(num_files,1)];
 end    
 filenames = filenames';
-    
-pyramids = BuildPyramid(filenames, params.image_dir, params.data_dir, ...
-        params.max_image_size, params.dictionary_size, params.num_texton_images, ...
-        params.pyramid_levels, params.can_skip);
 
 %Separate into training and testing datasets
-train_pyramids = zeros(ceil(1.05*params.percent_train*size(pyramids,1)), size(pyramids,2));
-train_labels = zeros(ceil(1.05*params.percent_train*size(pyramids,1)), 1);
-test_pyramids = zeros(ceil(1.05*(1-params.percent_train)*size(pyramids,1)), size(pyramids,2));
-test_labels = zeros(ceil(1.05*(1-params.percent_train)*size(pyramids,1)), 1);
-curTrainEnd = 0;
-curTestEnd = 0;
+train_filenames = {};
+test_filenames = {};
+train_labels = [];
+test_labels = [];
 for i=1:params.num_classes
-    cur_pyramids = pyramids(totalLabels == i, :);
-    perm = randperm(size(cur_pyramids,1));
+    cur_filenames = filenames(totalLabels == i);
+    perm = randperm(size(cur_filenames,1));
     trainperm = perm(1:floor(params.percent_train*end));
     testperm = perm(ceil(params.percent_train*end):end);
-    train_pyramids(curTrainEnd + (1:length(trainperm)),:) = cur_pyramids(trainperm,:);
-    test_pyramids(curTestEnd + (1:length(testperm)),:) = cur_pyramids(testperm,:);
-    train_labels(curTrainEnd + (1:length(trainperm))) = i;
-    test_labels(curTestEnd + (1:length(testperm))) = i;
-    curTrainEnd = curTrainEnd + length(trainperm);
-    curTestEnd = curTestEnd + length(testperm);
+    train_filenames = [train_filenames; cur_filenames(trainperm)];
+    test_filenames = [test_filenames; cur_filenames(testperm)];
+    train_labels = [train_labels; i*ones(length(trainperm),1)];
+    test_labels = [test_labels; i*ones(length(testperm),1)];
 end
-train_pyramids = train_pyramids(1:curTrainEnd,:);
-test_pyramids = test_pyramids(1:curTestEnd,:);
-train_labels = train_labels(1:curTrainEnd);
-test_labels = test_labels(1:curTestEnd);
+clear total_labels;
+clear filenames;
+fprintf('Data separated');
+
+%Note: Codebook technically could be generated from testing data with this
+%approach, easy to fix up later though.
+train_pyramids = BuildPyramid(train_filenames, params.image_dir, params.data_dir, ...
+    params.max_image_size, params.dictionary_size, params.num_texton_images, ...
+    params.pyramid_levels, params.max_pooling, params.can_skip);
+test_pyramids = BuildPyramid(test_filenames, params.image_dir, params.data_dir, ...
+    params.max_image_size, params.dictionary_size, params.num_texton_images, ...
+    params.pyramid_levels, params.max_pooling, params.can_skip);
+fprintf('Pyramids built');
+clear filenames;
+
+
+
+%Apply kernels if you want
+train_data = hist_isect_c(train_pyramids, train_pyramids);
+test_data = hist_isect_c(test_pyramids, train_pyramids);
+clear train_pyramids;
+clear test_pyramids;
+fprintf('Kernel applied');
+
 
 %Train detector
-model = train(train_labels,sparse(train_pyramids));
+model = train(train_labels,sparse(train_data));
 
 %Test detector
-[~, accuracy] = predict(test_labels, sparse(test_pyramids), model);
+[~, accuracy] = predict(test_labels, sparse(test_data), model);
 accuracy
 
 end
@@ -70,6 +82,7 @@ function params = initParams()
     params.dictionary_size = 200;
     params.num_texton_images = 50;
     params.pyramid_levels = 4;
+    params.max_pooling = 0;
     params.can_skip = 1;
     params.percent_train = 0.7;
 end

@@ -42,7 +42,7 @@ load(inFName,'dictionary');
 fprintf('Loaded texton dictionary: %d textons\n', dictionarySize);
 
 %% compute texton labels of patches and whole-image histograms
-H_all = [];
+H_all = zeros(size(imageFileList,1), dictionarySize);
 
 for f = 1:size(imageFileList,1)
 
@@ -56,7 +56,7 @@ for f = 1:size(imageFileList,1)
     if(size(dir(outFName),1)~=0 && size(dir(outFName2),1)~=0 && canSkip)
         fprintf('Skipping %s\n', imageFName);
         load(outFName2, 'H');
-        H_all = [H_all; H];
+        H_all(f,:) = H;
         continue;
     end
     
@@ -88,7 +88,7 @@ for f = 1:size(imageFileList,1)
     end
 
     H = hist(texton_ind.data, 1:dictionarySize);
-    H_all = [H_all; H];
+    H_all(f,:) = H;
 
     %% save texton indices and histograms
     save(outFName, 'texton_ind');
