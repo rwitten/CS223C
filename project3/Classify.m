@@ -6,36 +6,35 @@ function [] = Classify()
 params = initParams();
 
 %Build pyramids for each class
-totalPyramids = 0;
-pyramid_cells = cell(params.num_classes,1);
+totalLabels = [];
+filenames = {};
 for i=1:params.num_classes
     %Build list of filepaths
     cur_image_dir = strcat(params.image_dir, '/',params.class_names{i});
-    cur_data_dir = strcat(params.data_dir, '/',params.class_names{i});
     fnames = dir(fullfile(cur_image_dir, '*.jpg'));
     num_files = size(fnames,1);
-    filenames = cell(num_files,1);
+    newfilenames = cell(num_files,1);
     for f = 1:num_files
-        filenames{f} = fnames(f).name;
+        newfilenames{f} =  strcat(params.class_names{i}, '/', fnames(f).name);
     end
+    filenames(end + (1:num_files)) = newfilenames;
+    totalLabels = [totalLabels; i*ones(num_files,1)];
+end    
+filenames = filenames';
     
-    %Run SPM
-    pyramid_cells{i} = BuildPyramid(filenames, cur_image_dir, cur_data_dir, ...
+pyramids = BuildPyramid(filenames, params.image_dir, params.data_dir, ...
         params.max_image_size, params.dictionary_size, params.num_texton_images, ...
         params.pyramid_levels, params.can_skip);
-    
-    totalPyramids = totalPyramids + size(pyramid_cells{i},1);
-end
 
 %Separate into training and testing datasets
-train_pyramids = zeros(ceil(1.05*params.percent_train*totalPyramids), size(pyramid_cells{1},2));
-train_labels = zeros(ceil(1.05*params.percent_train*totalPyramids), 1);
-test_pyramids = zeros(ceil(1.05*(1-params.percent_train)*totalPyramids), size(pyramid_cells{1},2));
-test_labels = zeros(ceil(1.05*(1-params.percent_train)*totalPyramids), 1);
+train_pyramids = zeros(ceil(1.05*params.percent_train*size(pyramids,1)), size(pyramids,2));
+train_labels = zeros(ceil(1.05*params.percent_train*size(pyramids,1)), 1);
+test_pyramids = zeros(ceil(1.05*(1-params.percent_train)*size(pyramids,1)), size(pyramids,2));
+test_labels = zeros(ceil(1.05*(1-params.percent_train)*size(pyramids,1)), 1);
 curTrainEnd = 0;
 curTestEnd = 0;
-for i=1:length(pyramid_cells)
-    cur_pyramids = squeeze(pyramid_cells{i});
+for i=1:params.num_classes
+    cur_pyramids = pyramids(totalLabels == i, :);
     perm = randperm(size(cur_pyramids,1));
     trainperm = perm(1:floor(params.percent_train*end));
     testperm = perm(ceil(params.percent_train*end):end);
