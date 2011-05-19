@@ -1,4 +1,4 @@
-function [ pyramid_all ] = CompilePyramid( imageFileList, dataBaseDir, textonSuffix, dictionarySize, pyramidLevels, canSkip )
+function [ pyramid_all ] = CompilePyramid( imageFileList, dataBaseDir, textonSuffix, dictionarySize, pyramidLevels, maxPooling, canSkip )
 %function [ pyramid_all ] = CompilePyramid( imageFileList, dataBaseDir, textonSuffix, dictionarySize, pyramidLevels, canSkip )
 %
 % Generate the pyramid from the texton lablels
@@ -40,7 +40,13 @@ end
 
 binsHigh = 2^(pyramidLevels-1);
 
-pyramid_all = [];
+featureLength = 0;
+for i=0:pyramidLevels-1;
+   featureLength = featureLength + (2^(2*i))  * dictionarySize;
+end
+
+pyramid_all = zeros(size(imageFileList,1), featureLength);
+pyramid = zeros(1,featureLength);
 
 for f = 1:size(imageFileList,1)
 
@@ -54,7 +60,7 @@ for f = 1:size(imageFileList,1)
     if(size(dir(outFName),1)~=0 && canSkip)
         fprintf('Skipping %s\n', imageFName);
         load(outFName, 'pyramid');
-        pyramid_all = [pyramid_all; pyramid];
+        pyramid_all(f,:) = pyramid;
         continue;
     end
     
@@ -96,25 +102,32 @@ for f = 1:size(imageFileList,1)
         pyramid_cell{l} = zeros(num_bins, num_bins, dictionarySize);
         for i=1:num_bins
             for j=1:num_bins
-                pyramid_cell{l}(i,j,:) = ...
-                pyramid_cell{l-1}(2*i-1,2*j-1,:) + pyramid_cell{l-1}(2*i,2*j-1,:) + ...
-                pyramid_cell{l-1}(2*i-1,2*j,:) + pyramid_cell{l-1}(2*i,2*j,:);
+                if (maxPooling)
+                    pyramid_cell{l}(i,j,:) = max(max(max(...
+                    pyramid_cell{l-1}(2*i-1,2*j-1,:),pyramid_cell{l-1}(2*i,2*j-1,:)), ...
+                    pyramid_cell{l-1}(2*i-1,2*j,:)), pyramid_cell{l-1}(2*i,2*j,:));
+                else
+                    pyramid_cell{l}(i,j,:) = ...
+                    pyramid_cell{l-1}(2*i-1,2*j-1,:) + pyramid_cell{l-1}(2*i,2*j-1,:) + ...
+                    pyramid_cell{l-1}(2*i-1,2*j,:) + pyramid_cell{l-1}(2*i,2*j,:);
+                end
             end
         end
         num_bins = num_bins/2;
     end
 
     %% stack all the histograms with appropriate weights
-    pyramid = [];
+    curEnd = 0;
     for l = 1:pyramidLevels-1
-        pyramid = [pyramid pyramid_cell{l}(:)' .* 2^(-l)];
+        pyramid(curEnd + (1:length(pyramid_cell{l}))) = pyramid_cell{l}(:)' .* 2^(-l);
+        curEnd = curEnd + length(pyramid_cell{l});
     end
-    pyramid = [pyramid pyramid_cell{pyramidLevels}(:)' .* 2^(1-pyramidLevels)];
+    pyramid((curEnd+1):end) = pyramid_cell{pyramidLevels}(:)' .* 2^(1-pyramidLevels);
 
     % save pyramid
     save(outFName, 'pyramid');
 
-    pyramid_all = [pyramid_all; pyramid];
+    pyramid_all(f,:) = pyramid;
 
 end % f
 
