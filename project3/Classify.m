@@ -45,21 +45,31 @@ fprintf('Data separated');
 %approach, easy to fix up later though.
 train_pyramids = BuildPyramid(train_filenames, params.image_dir, params.data_dir, ...
     params.max_image_size, params.dictionary_size, params.num_texton_images, ...
-    params.pyramid_levels, params.max_pooling, params.can_skip);
+    params.pyramid_levels, params.max_pooling, params.can_skip,params.numNeighbors);
 test_pyramids = BuildPyramid(test_filenames, params.image_dir, params.data_dir, ...
     params.max_image_size, params.dictionary_size, params.num_texton_images, ...
-    params.pyramid_levels, params.max_pooling, params.can_skip);
+    params.pyramid_levels, params.max_pooling, params.can_skip, params.numNeighbors);
+
+size(train_pyramids)
+size(test_pyramids)
 fprintf('Pyramids built');
 clear filenames;
 
 
-
 %Apply kernels if you want
-train_data = hist_isect_c(train_pyramids, train_pyramids);
-test_data = hist_isect_c(test_pyramids, train_pyramids);
+if params.apply_kernel
+    train_data = hist_isect_c(train_pyramids, train_pyramids);
+    test_data = hist_isect_c(test_pyramids, train_pyramids);
+    fprintf('kernel applied');
+else
+    train_data = train_pyramids;
+    test_data = test_pyramids;
+    fprintf('No kernel applied');
+end
 clear train_pyramids;
 clear test_pyramids;
-fprintf('Kernel applied');
+
+
 
 
 %Train detector
@@ -83,6 +93,9 @@ function params = initParams()
     params.num_texton_images = 50;
     params.pyramid_levels = 4;
     params.max_pooling = 0;
-    params.can_skip = 1;
+    params.do_llc = 0;
+    params.apply_kernel = 0;
+    params.can_skip = 0;
     params.percent_train = 0.7;
+    params.numNeighbors = 5;
 end

@@ -1,4 +1,5 @@
-function [ H_all ] = BuildHistograms( imageFileList, dataBaseDir, featureSuffix, dictionarySize, canSkip )
+function [ H_all ] = BuildHistograms( imageFileList, dataBaseDir, ...
+    featureSuffix, dictionarySize, canSkip,numNeighbors)
 %function [ H_all ] = BuildHistograms( imageFileList, dataBaseDir, featureSuffix, dictionarySize, canSkip )
 %
 %find texton labels of patches and compute texton histograms of all images
@@ -73,6 +74,10 @@ for f = 1:size(imageFileList,1)
     texton_ind.hgt = features.hgt;
     %run in batches to keep the memory foot print small
     batchSize = 10000;
+
+    %this is what we change to make LLC happen.  Currently we're solving
+    %equation (1), but we should solve equation (3) instead, or at least an
+    %approximation of it. -rafi
     if ndata <= batchSize
         dist_mat = sp_dist2(features.data, dictionary);
         [min_dist, min_ind] = min(dist_mat, [], 2);
@@ -87,7 +92,9 @@ for f = 1:size(imageFileList,1)
         end
     end
 
+    %this is sum pooling
     H = hist(texton_ind.data, 1:dictionarySize);
+
     H_all(f,:) = H;
 
     %% save texton indices and histograms

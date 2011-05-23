@@ -92,6 +92,7 @@ for f = 1:size(imageFileList,1)
                                             (texton_ind.y > y_lo) & (texton_ind.y <= y_hi));
             
             % make histogram of features in bin
+            %this is sum pooling
             pyramid_cell{1}(i,j,:) = hist(texton_patch, 1:dictionarySize)./length(texton_ind.data);
         end
     end
