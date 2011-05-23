@@ -119,8 +119,8 @@ for f = 1:size(imageFileList,1)
     %% stack all the histograms with appropriate weights
     curEnd = 0;
     for l = 1:pyramidLevels-1
-        pyramid(curEnd + (1:length(pyramid_cell{l}))) = pyramid_cell{l}(:)' .* 2^(-l);
-        curEnd = curEnd + length(pyramid_cell{l});
+        pyramid(curEnd + (1:numel(pyramid_cell{l}))) = pyramid_cell{l}(:)' .* 2^(-l);
+        curEnd = curEnd + numel(pyramid_cell{l});
     end
     pyramid((curEnd+1):end) = pyramid_cell{pyramidLevels}(:)' .* 2^(1-pyramidLevels);
 
