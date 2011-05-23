@@ -41,6 +41,7 @@ clear total_labels;
 clear filenames;
 fprintf('Data separated');
 
+
 %Note: Codebook technically could be generated from testing data with this
 %approach, easy to fix up later though.
 train_pyramids = BuildPyramid(train_filenames, params.image_dir, params.data_dir, ...
@@ -74,6 +75,8 @@ clear test_pyramids;
 
 %Train detector
 model = train(train_labels,sparse(train_data));
+[~, accuracy] = predict(train_labels, sparse(train_data), model);
+accuracy
 
 %Test detector
 [~, accuracy] = predict(test_labels, sparse(test_data), model);
