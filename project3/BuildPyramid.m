@@ -66,6 +66,6 @@ end
 %% build the pyramid
 GenerateSiftDescriptors( imageFileList,imageBaseDir,dataBaseDir,maxImageSize,gridSpacing,patchSize,canSkip);
 CalculateDictionary(imageFileList,dataBaseDir,'_sift.mat',dictionarySize,numTextonImages,canSkip);
-BuildHistograms(imageFileList,dataBaseDir,'_sift.mat',dictionarySize,0);
-pyramid_all = CompilePyramid(imageFileList,dataBaseDir,sprintf('_texton_ind_%d.mat',dictionarySize),dictionarySize,pyramidLevels,maxPooling, 0);
+BuildHistograms(imageFileList,dataBaseDir,'_sift.mat',dictionarySize,canSkip);
+pyramid_all = CompilePyramid(imageFileList,dataBaseDir,sprintf('_texton_ind_%d.mat',dictionarySize),dictionarySize,pyramidLevels,maxPooling, canSkip);
 end
