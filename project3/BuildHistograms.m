@@ -100,20 +100,26 @@ for f = 1:size(imageFileList,1)
 %             texton_ind.data(lo:hi,:) = min_ind;
 %         end
 %     end
-    
-    tic
+
     for element = 1:ndata
         distances = sum((bsxfun(@minus,dictionary,features.data(element,:)).^2),2);
         [~, indices] = sort(distances);
         indices = indices(1:params.numNeighbors);
-%         x = rand(params.numNeighbors,1);
-%         x = x / sum(x);
-        [x,resnorm] = lsqlin(dictionary(indices,:)',features.data(element,:)',...
-            [] ,[],...%nonnegativity
-            conC,1,...
-            [],[],...
-            conD,...
-            lsqOpts);
+        
+        curDict = dictionary(indices,:)';
+        curTarg = features.data(element,:)';
+        initX = curDict \ curTarg;
+        
+        if (abs(sum(initX)-1) < params.sumTol)
+            x = initX;
+        else
+            [x,resnorm] = lsqlin(curDict, curTarg,...
+                [] ,[],...%nonnegativity
+                conC,1,...
+                [],[],...
+                conD,...
+                lsqOpts);
+        end
 %  
 % 
 %         if 1, %sum pooling
@@ -125,7 +131,6 @@ for f = 1:size(imageFileList,1)
         texton_ind.data(element, :) = x';
         texton_ind.indices(element,:) = indices';
     end
-    toc
 
     %this is sum pooling
     %H = hist(texton_ind.data, 1:dictionarySize);

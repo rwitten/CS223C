@@ -99,6 +99,7 @@ function params = initParams()
     params.can_skip_calcdict = 1;
     params.can_skip_buildhist = 0;
     params.can_skip_compilepyramid = 0;
+    params.sumTol = 0.5;
     params.percent_train = 0.7;
     params.numNeighbors = 5;
 end
