@@ -1,6 +1,4 @@
-function [ pyramid_all ] = BuildPyramid( imageFileList, imageBaseDir, ...
-    dataBaseDir, maxImageSize, dictionarySize, numTextonImages, pyramidLevels,...
-    maxPooling, canSkip,numNeighbors )
+function [ pyramid_all ] = BuildPyramid( imageFileList, params)
 %function [ pyramid_all ] = BuildPyramid( imageFileList, imageBaseDir, dataBaseDir, dictionarySize, numTextonImages, pyramidLevels )
 %
 %Complete all steps necessary to build a spatial pyramid based
@@ -36,38 +34,51 @@ function [ pyramid_all ] = BuildPyramid( imageFileList, imageBaseDir, ...
 %  levels are generated, and the image size has a maximum of 1000 pixels in
 %  either the x or y direction.
 
-%% parameters for feature extraction (see GenerateSiftDescriptors)
-if(nargin<4)
-    maxImageSize = 1000
-end
+imageBaseDir = params.image_dir;
+dataBaseDir = params.data_dir;
+maxImageSize = params.max_image_size;
+dictionarySize = params.dictionary_size;
+pyramidLevels = params.pyramid_levels;
+numTextonImages=params.num_texton_images;
+maxPooling = params.max_pooling;
+canSkip = params.can_skip;
+numNeighbors = params.numNeighbors;
 
 gridSpacing = 8
 patchSize = 16
 
-
-%% parameters for obtaining texton dictionary (see CalculateDictionary)
-if(nargin<5)
-    dictionarySize = 200
-end
-
-if(nargin<6)
-    numTextonImages = 50
-end
-
-
-%% parameters for pyramid computation (see CompilePyramid)
-if(nargin<7)
-    pyramidLevels = 4
-end
-
-%% parameters for all functions
-if(nargin<8)
-    canSkip = 1
-end
+% %% parameters for feature extraction (see GenerateSiftDescriptors)
+% if(nargin<4)
+%     maxImageSize = 1000
+% end
+% 
+% gridSpacing = 8
+% patchSize = 16
+% 
+% 
+% %% parameters for obtaining texton dictionary (see CalculateDictionary)
+% if(nargin<5)
+%     dictionarySize = 200
+% end
+% 
+% if(nargin<6)
+%     numTextonImages = 50
+% end
+% 
+% 
+% %% parameters for pyramid computation (see CompilePyramid)
+% if(nargin<7)
+%     pyramidLevels = 4
+% end
+% 
+% %% parameters for all functions
+% if(nargin<8)
+%     canSkip = 1
+% end
 
 %% build the pyramid
-GenerateSiftDescriptors( imageFileList,imageBaseDir,dataBaseDir,maxImageSize,gridSpacing,patchSize,canSkip);
-CalculateDictionary(imageFileList,dataBaseDir,'_sift.mat',dictionarySize,numTextonImages,canSkip);
-BuildHistograms(imageFileList,dataBaseDir,'_sift.mat',dictionarySize,canSkip,numNeighbors);
-pyramid_all = CompilePyramid(imageFileList,dataBaseDir,sprintf('_texton_ind_%d.mat',dictionarySize),dictionarySize,pyramidLevels,maxPooling, canSkip);
+GenerateSiftDescriptors( imageFileList,imageBaseDir,dataBaseDir,maxImageSize,gridSpacing,patchSize,params);
+CalculateDictionary(imageFileList,dataBaseDir,'_sift.mat',dictionarySize,numTextonImages,params);
+BuildHistograms(imageFileList,dataBaseDir,'_sift.mat',dictionarySize,params);
+pyramid_all = CompilePyramid(imageFileList,dataBaseDir,sprintf('_texton_ind_%d.mat',dictionarySize),dictionarySize,pyramidLevels, params);
 end

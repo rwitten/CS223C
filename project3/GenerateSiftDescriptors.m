@@ -1,4 +1,4 @@
-function [] = GenerateSiftDescriptors( imageFileList, imageBaseDir, dataBaseDir, maxImageSize, gridSpacing, patchSize, canSkip )
+function [] = GenerateSiftDescriptors( imageFileList, imageBaseDir, dataBaseDir, maxImageSize, gridSpacing, patchSize, params )
 %function [] = GenerateSiftDescriptors( imageFileList, imageBaseDir, dataBaseDir, maxImageSize, gridSpacing, patchSize, canSkip )
 %
 %Generate the dense grid of sift descriptors for each
@@ -48,7 +48,7 @@ for f = 1:size(imageFileList,1)
     outFName = fullfile(dataBaseDir, sprintf('%s_sift.mat', baseFName));
     imageFName = fullfile(imageBaseDir, imageFName);
     
-    if(size(dir(outFName),1)~=0 && canSkip)
+    if(size(dir(outFName),1)~=0 && params.can_skip && params.can_skip_sift)
         fprintf('Skipping %s\n', imageFName);
         continue;
     end
@@ -71,7 +71,7 @@ for f = 1:size(imageFileList,1)
     
     [gridX,gridY] = meshgrid(offsetX:gridSpacing:wid-patchSize+1, offsetY:gridSpacing:hgt-patchSize+1);
 
-    fprintf('Processing %s: wid %d, hgt %d, grid size: %d x %d, %d patches\n', ...
+    fprintf('Processing (SIFT) %s: wid %d, hgt %d, grid size: %d x %d, %d patches\n', ...
              imageFName, wid, hgt, size(gridX,2), size(gridX,1), numel(gridX));
 
     %% find SIFT descriptors

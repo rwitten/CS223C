@@ -44,12 +44,8 @@ fprintf('Data separated');
 
 %Note: Codebook technically could be generated from testing data with this
 %approach, easy to fix up later though.
-train_pyramids = BuildPyramid(train_filenames, params.image_dir, params.data_dir, ...
-    params.max_image_size, params.dictionary_size, params.num_texton_images, ...
-    params.pyramid_levels, params.max_pooling, params.can_skip,params.numNeighbors);
-test_pyramids = BuildPyramid(test_filenames, params.image_dir, params.data_dir, ...
-    params.max_image_size, params.dictionary_size, params.num_texton_images, ...
-    params.pyramid_levels, params.max_pooling, params.can_skip, params.numNeighbors);
+train_pyramids = BuildPyramid(train_filenames, params);
+test_pyramids = BuildPyramid(test_filenames, params);
 
 size(train_pyramids)
 size(test_pyramids)
@@ -97,8 +93,12 @@ function params = initParams()
     params.pyramid_levels = 4;
     params.max_pooling = 0;
     params.do_llc = 0;
-    params.apply_kernel = 0;
-    params.can_skip = 0;
+    params.apply_kernel = 1;
+    params.can_skip = 1;
+    params.can_skip_sift = 1;
+    params.can_skip_calcdict = 1;
+    params.can_skip_buildhist = 1;
+    params.can_skip_compilepyramid = 0;
     params.percent_train = 0.7;
     params.numNeighbors = 5;
 end

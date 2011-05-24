@@ -1,4 +1,4 @@
-function [ ] = CalculateDictionary( imageFileList, dataBaseDir, featureSuffix, dictionarySize, numTextonImages, canSkip )
+function [ ] = CalculateDictionary( imageFileList, dataBaseDir, featureSuffix, dictionarySize, numTextonImages, params )
 %function [ ] = CalculateDictionary( imageFileList, dataBaseDir, featureSuffix, dictionarySize, numTextonImages, canSkip )
 %
 %Create the texton dictionary
@@ -48,7 +48,7 @@ end
 
 outFName = fullfile(dataBaseDir, sprintf('dictionary_%d.mat', dictionarySize));
 
-if(size(dir(outFName),1)~=0 && canSkip)
+if(size(dir(outFName),1)~=0 && params.can_skip && params.can_skip_calcdict)
     fprintf('Dictionary file %s already exists.\n', outFName);
     return;
 end
