@@ -89,15 +89,19 @@ for f = 1:size(imageFileList,1)
             y_hi = floor(hgt/binsHigh * j);
             
             texton_patch = texton_ind.data( (texton_ind.x > x_lo) & (texton_ind.x <= x_hi) & ...
-                                            (texton_ind.y > y_lo) & (texton_ind.y <= y_hi));
+                                            (texton_ind.y > y_lo) & (texton_ind.y <= y_hi), :);
             texton_indices = texton_ind.indices( (texton_ind.x > x_lo) & (texton_ind.x <= x_hi) & ...
-                                            (texton_ind.y > y_lo) & (texton_ind.y <= y_hi));
+                                            (texton_ind.y > y_lo) & (texton_ind.y <= y_hi),:);
             % make histogram of features in bin
             %this is sum pooling
             
             for texton=1:size(texton_indices,1),
-                pyramid_cell{1}(i,j,texton_indices(texton,:))=...
-                    pyramid_cell{1}(i,j,texton_indices(texton,:)) +texton_patch(texton,:);
+                if (params.max_pooling)
+                   pyramid_cell{1}(i,j,texton_indices(texton,:)) = max(pyramid_cell{1}(i,j,texton_indices(texton,:)),permute(texton_patch(texton,:), [3 1 2])); 
+                else
+                    pyramid_cell{1}(i,j,texton_indices(texton,:))=...
+                        pyramid_cell{1}(i,j,texton_indices(texton,:)) +texton_patch(texton,:);
+                end
             end
             pyramid_cell{1}(i,j,:) = pyramid_cell{1}(i,j,:)./length(texton_ind.data);
             %pyramid_cell{1}(i,j,:) = hist(texton_indices, 1:dictionarySize)./length(texton_ind.data);
