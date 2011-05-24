@@ -1,4 +1,4 @@
-function [ pyramid_all ] = CompilePyramid( imageFileList, dataBaseDir, textonSuffix, dictionarySize, pyramidLevels, maxPooling, canSkip )
+function [ pyramid_all ] = CompilePyramid( imageFileList, dataBaseDir, textonSuffix, dictionarySize, pyramidLevels, params )
 %function [ pyramid_all ] = CompilePyramid( imageFileList, dataBaseDir, textonSuffix, dictionarySize, pyramidLevels, canSkip )
 %
 % Generate the pyramid from the texton lablels
@@ -57,7 +57,7 @@ for f = 1:size(imageFileList,1)
     baseFName = fullfile(dirN, base);
     
     outFName = fullfile(dataBaseDir, sprintf('%s_pyramid_%d_%d.mat', baseFName, dictionarySize, pyramidLevels));
-    if(size(dir(outFName),1)~=0 && canSkip)
+    if(size(dir(outFName),1)~=0 && params.can_skip && params.can_skip_compilepyramid)
         fprintf('Skipping %s\n', imageFName);
         load(outFName, 'pyramid');
         pyramid_all(f,:) = pyramid;
@@ -90,9 +90,17 @@ for f = 1:size(imageFileList,1)
             
             texton_patch = texton_ind.data( (texton_ind.x > x_lo) & (texton_ind.x <= x_hi) & ...
                                             (texton_ind.y > y_lo) & (texton_ind.y <= y_hi));
-            
+            texton_indices = texton_ind.indices( (texton_ind.x > x_lo) & (texton_ind.x <= x_hi) & ...
+                                            (texton_ind.y > y_lo) & (texton_ind.y <= y_hi));
             % make histogram of features in bin
-            pyramid_cell{1}(i,j,:) = hist(texton_patch, 1:dictionarySize)./length(texton_ind.data);
+            %this is sum pooling
+            
+            for texton=1:size(texton_indices,1),
+                pyramid_cell{1}(i,j,texton_indices(texton,:))=...
+                    pyramid_cell{1}(i,j,texton_indices(texton,:)) +texton_patch(texton,:);
+            end
+            pyramid_cell{1}(i,j,:) = pyramid_cell{1}(i,j,:)./length(texton_ind.data);
+            %pyramid_cell{1}(i,j,:) = hist(texton_indices, 1:dictionarySize)./length(texton_ind.data);
         end
     end
 
@@ -102,7 +110,7 @@ for f = 1:size(imageFileList,1)
         pyramid_cell{l} = zeros(num_bins, num_bins, dictionarySize);
         for i=1:num_bins
             for j=1:num_bins
-                if (maxPooling)
+                if (params.max_pooling)
                     pyramid_cell{l}(i,j,:) = max(max(max(...
                     pyramid_cell{l-1}(2*i-1,2*j-1,:),pyramid_cell{l-1}(2*i,2*j-1,:)), ...
                     pyramid_cell{l-1}(2*i-1,2*j,:)), pyramid_cell{l-1}(2*i,2*j,:));

@@ -1,6 +1,6 @@
 # This Makefile is used under Linux
 
-MATLABDIR ?= /usr/local/matlab
+MATLABDIR ?= /Applications/MATLAB_R2009b.app/
 CXX ?= g++
 #CXX = g++-3.3
 CC ?= gcc
@@ -30,7 +30,10 @@ octave:
 binary: train.$(MEX_EXT) predict.$(MEX_EXT) libsvmread.$(MEX_EXT) libsvmwrite.$(MEX_EXT)
 
 train.$(MEX_EXT): train.c ../linear.h ../tron.o ../linear.o linear_model_matlab.o ../blas/blas.a
-	$(MEX) $(MEX_OPTION) train.c ../tron.o ../linear.o linear_model_matlab.o ../blas/blas.a
+	@echo !!!!!!!!!!!!!!
+	@echo $(MEX) $(MEX_OPTION) train.c ../tron.o ../linear.o linear_model_matlab.o ../blas/blas.a
+	@echo DONEDONEDONE
+	@$(MEX) $(MEX_OPTION) train.c ../tron.o ../linear.o linear_model_matlab.o ../blas/blas.a
 
 predict.$(MEX_EXT): predict.c ../linear.h ../tron.o ../linear.o linear_model_matlab.o ../blas/blas.a
 	$(MEX) $(MEX_OPTION) predict.c ../tron.o ../linear.o linear_model_matlab.o ../blas/blas.a

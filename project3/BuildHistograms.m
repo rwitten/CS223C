@@ -1,4 +1,5 @@
-function [ H_all ] = BuildHistograms( imageFileList, dataBaseDir, featureSuffix, dictionarySize, canSkip )
+function [ H_all ] = BuildHistograms( imageFileList, dataBaseDir, ...
+    featureSuffix, dictionarySize, params)
 %function [ H_all ] = BuildHistograms( imageFileList, dataBaseDir, featureSuffix, dictionarySize, canSkip )
 %
 %find texton labels of patches and compute texton histograms of all images
@@ -53,7 +54,8 @@ for f = 1:size(imageFileList,1)
     
     outFName = fullfile(dataBaseDir, sprintf('%s_texton_ind_%d.mat', baseFName, dictionarySize));
     outFName2 = fullfile(dataBaseDir, sprintf('%s_hist_%d.mat', baseFName, dictionarySize));
-    if(size(dir(outFName),1)~=0 && size(dir(outFName2),1)~=0 && canSkip)
+    if(size(dir(outFName),1)~=0 && size(dir(outFName2),1)~=0 && params.can_skip&&...
+        params.can_skip_buildhist)
         fprintf('Skipping %s\n', imageFName);
         load(outFName2, 'H');
         H_all(f,:) = H;
@@ -66,33 +68,65 @@ for f = 1:size(imageFileList,1)
     fprintf('Loaded %s, %d descriptors\n', inFName, ndata);
 
     %% find texton indices and compute histogram 
-    texton_ind.data = zeros(ndata,1);
+    texton_ind.data = zeros(ndata,params.numNeighbors);
+    texton_ind.indices = zeros(ndata,params.numNeighbors);
     texton_ind.x = features.x;
     texton_ind.y = features.y;
     texton_ind.wid = features.wid;
     texton_ind.hgt = features.hgt;
     %run in batches to keep the memory foot print small
     batchSize = 10000;
-    if ndata <= batchSize
-        dist_mat = sp_dist2(features.data, dictionary);
-        [min_dist, min_ind] = min(dist_mat, [], 2);
-        texton_ind.data = min_ind;
-    else
-        for j = 1:batchSize:ndata
-            lo = j;
-            hi = min(j+batchSize-1,ndata);
-            dist_mat = dist2(features.data(lo:hi,:), dictionary);
-            [min_dist, min_ind] = min(dist_mat, [], 2);
-            texton_ind.data(lo:hi,:) = min_ind;
-        end
+
+    %this is what we change to make LLC happen.  Currently we're solving
+    %equation (1), but we should solve equation (3) instead, or at least an
+    %approximation of it. -rafi
+%     if ndata <= batchSize
+%         dist_mat = sp_dist2(features.data, dictionary);
+%         [min_dist, min_ind] = min(dist_mat, [], 2);
+%         texton_ind.data = min_ind;
+%     else
+%         for j = 1:batchSize:ndata
+%             lo = j;
+%             hi = min(j+batchSize-1,ndata);
+%             dist_mat = dist2(features.data(lo:hi,:), dictionary);
+%             [min_dist, min_ind] = min(dist_mat, [], 2);
+%             texton_ind.data(lo:hi,:) = min_ind;
+%         end
+%     end
+    
+    
+    for element = 1:ndata
+        distances = sum((bsxfun(@minus,dictionary,features.data(element,:)).^2),2);
+        [~, indices] = sort(distances);
+        indices = indices(1:params.numNeighbors);
+        x = rand(params.numNeighbors,1);
+        x = x / sum(x);
+%         [x,resnorm] = lsqlin(dictionary(indices,:)',features.data(element,:)',...
+%             eye(params.numNeighbors),zeros(params.numNeighbors,1),...%nonnegativity
+%             ones(1,params.numNeighbors),1,...
+%             [],[],...
+%             ones(params.numNeighbors,1)/params.numNeighbors,...
+%             optimset('display', 'off','LargeScale', 'off'));
+ 
+
+%         if 1, %sum pooling
+%             H(indices) = H(indices) + x';
+%         else %max pooling
+%             H(indices) = max(H(indices), x');
+%         end
+
+        texton_ind.data(element, :) = x';
+        texton_ind.indices(element,:) = indices';
     end
 
-    H = hist(texton_ind.data, 1:dictionarySize);
-    H_all(f,:) = H;
+    %this is sum pooling
+    %H = hist(texton_ind.data, 1:dictionarySize);
+
+    %H_all(f,:) = H;
 
     %% save texton indices and histograms
     save(outFName, 'texton_ind');
-    save(outFName2, 'H');
+    %save(outFName2, 'H');
 end
 
 %% save histograms of all images in this directory in a single file
