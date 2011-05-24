@@ -82,9 +82,17 @@ end
 
 function params = initParams()
     load('class_names.mat', 'classes');
+    
+    params.do_ppmi = 1;
 
-    params.image_dir = 'images'; 
-    params.data_dir = 'data';
+    if ~params.do_ppmi,
+        params.image_dir = 'images'; 
+        params.data_dir = 'data';
+    else
+        params.image_dir = 'ppmi/norm_image/play_instrument'; 
+        params.data_dir = 'data_ppmi';
+    end
+    
     params.class_names = classes;
     params.num_classes = 3;%length(params.class_names);
     params.max_image_size = 1000;
