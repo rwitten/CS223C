@@ -45,6 +45,13 @@ fprintf('Loaded texton dictionary: %d textons\n', dictionarySize);
 %% compute texton labels of patches and whole-image histograms
 H_all = zeros(size(imageFileList,1), dictionarySize);
 
+%% Preallocate constants
+conA =  -1*eye(params.numNeighbors);
+conB =  zeros(params.numNeighbors,1);
+conC = ones(1,params.numNeighbors);
+conD = conC/params.numNeighbors;
+lsqOpts = optimset('display', 'off','LargeScale', 'off', 'TolFun', 1e-2);
+
 for f = 1:size(imageFileList,1)
 
     imageFName = imageFileList{f};
@@ -94,21 +101,21 @@ for f = 1:size(imageFileList,1)
 %         end
 %     end
     
-    
+    tic
     for element = 1:ndata
         distances = sum((bsxfun(@minus,dictionary,features.data(element,:)).^2),2);
         [~, indices] = sort(distances);
         indices = indices(1:params.numNeighbors);
-        x = rand(params.numNeighbors,1);
-        x = x / sum(x);
-%         [x,resnorm] = lsqlin(dictionary(indices,:)',features.data(element,:)',...
-%             eye(params.numNeighbors),zeros(params.numNeighbors,1),...%nonnegativity
-%             ones(1,params.numNeighbors),1,...
-%             [],[],...
-%             ones(params.numNeighbors,1)/params.numNeighbors,...
-%             optimset('display', 'off','LargeScale', 'off'));
- 
-
+%         x = rand(params.numNeighbors,1);
+%         x = x / sum(x);
+        [x,resnorm] = lsqlin(dictionary(indices,:)',features.data(element,:)',...
+            [] ,[],...%nonnegativity
+            conC,1,...
+            [],[],...
+            conD,...
+            lsqOpts);
+%  
+% 
 %         if 1, %sum pooling
 %             H(indices) = H(indices) + x';
 %         else %max pooling
@@ -118,6 +125,7 @@ for f = 1:size(imageFileList,1)
         texton_ind.data(element, :) = x';
         texton_ind.indices(element,:) = indices';
     end
+    toc
 
     %this is sum pooling
     %H = hist(texton_ind.data, 1:dictionarySize);
