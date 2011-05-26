@@ -56,11 +56,16 @@ for f = 1:size(imageFileList,1)
     [dirN base] = fileparts(imageFName);
     baseFName = fullfile(dirN, base);
     
-    outFName = fullfile(dataBaseDir, sprintf('%s_pyramid_%d_%d_%d.mat', baseFName, dictionarySize, pyramidLevels, params.numNeighbors));
+    outFName = fullfile(dataBaseDir, sprintf('%s_pyramid_%d_%d_%d_%d.mat', baseFName, dictionarySize, pyramidLevels, params.numNeighbors, params.max_pooling));
     if(size(dir(outFName),1)~=0 && params.can_skip && params.can_skip_compilepyramid)
         fprintf('Skipping %s\n', imageFName);
         load(outFName, 'pyramid');
         pyramid_all(f,:) = pyramid;
+        if (params.sum_norm)
+            pyramid = pyramid/sum(pyramid);
+        else
+            pyramid = pyramid/norm(pyramid);
+        end
         continue;
     end
     
@@ -129,12 +134,21 @@ for f = 1:size(imageFileList,1)
     end
 
     %% stack all the histograms with appropriate weights
-    curEnd = 0;
-    for l = 1:pyramidLevels-1
-        pyramid(curEnd + (1:numel(pyramid_cell{l}))) = pyramid_cell{l}(:)' .* 2^(-l);
-        curEnd = curEnd + numel(pyramid_cell{l});
+    if (params.max_pooling)
+        curEnd = 0;
+        for l = 1:pyramidLevels-1
+            pyramid(curEnd + (1:numel(pyramid_cell{l}))) = pyramid_cell{l}(:)';
+            curEnd = curEnd + numel(pyramid_cell{l});
+        end
+        pyramid((curEnd+1):end) = pyramid_cell{pyramidLevels}(:)';
+    else
+         curEnd = 0;
+        for l = 1:pyramidLevels-1
+            pyramid(curEnd + (1:numel(pyramid_cell{l}))) = pyramid_cell{l}(:)' .* 2^(-l);
+            curEnd = curEnd + numel(pyramid_cell{l});
+        end
+        pyramid((curEnd+1):end) = pyramid_cell{pyramidLevels}(:)' .* 2^(1-pyramidLevels);
     end
-    pyramid((curEnd+1):end) = pyramid_cell{pyramidLevels}(:)' .* 2^(1-pyramidLevels);
 
     %%Normalize
     if (params.sum_norm)
@@ -150,7 +164,7 @@ for f = 1:size(imageFileList,1)
 
 end % f
 
-outFName = fullfile(dataBaseDir, sprintf('pyramids_all_%d_%d_%d.mat', dictionarySize, pyramidLevels, params.numNeighbors));
+outFName = fullfile(dataBaseDir, sprintf('pyramids_all_%d_%d_%d_%d.mat', dictionarySize, pyramidLevels, params.numNeighbors, params.max_pooling));
 save(outFName, 'pyramid_all');
 
 
