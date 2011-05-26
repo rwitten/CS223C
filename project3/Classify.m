@@ -83,8 +83,7 @@ end
 function params = initParams()
     load('class_names.mat', 'classes');
     
-    params.do_ppmi = 1;
-
+    params.do_ppmi = 0;
     if ~params.do_ppmi,
         params.image_dir = 'images'; 
         params.data_dir = 'data';

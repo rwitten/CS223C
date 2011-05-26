@@ -51,6 +51,7 @@ conB =  zeros(params.numNeighbors,1);
 conC = ones(1,params.numNeighbors);
 conD = conC/params.numNeighbors;
 lsqOpts = optimset('display', 'off','LargeScale', 'off', 'TolFun', 1e-2);
+searchObj = createns(dictionary, 'NSMethod', 'exhaustive');
 
 for f = 1:size(imageFileList,1)
 
@@ -101,25 +102,27 @@ for f = 1:size(imageFileList,1)
 %         end
 %     end
 
+%     tic
+    indices = searchObj.knnsearch(features.data, 'K', params.numNeighbors);
     for element = 1:ndata
-        distances = sum((bsxfun(@minus,dictionary,features.data(element,:)).^2),2);
-        [~, indices] = sort(distances);
-        indices = indices(1:params.numNeighbors);
+        curTarg = features.data(element,:);
         
-        curDict = dictionary(indices,:)';
-        curTarg = features.data(element,:)';
-        initX = curDict \ curTarg;
+        curDict = dictionary(indices(ndata,:),:);
+        bigC = bsxfun(@minus,curDict, curTarg);
+        bigC = bigC * bigC';
+        initX = bigC \ conC';
+        initX = initX / sum(initX);
         
-        if (abs(sum(initX)-1) < params.sumTol)
-            x = initX;
-        else
-            [x,resnorm] = lsqlin(curDict, curTarg,...
-                conA,conB,...%nonnegativity
-                conC,1,...
-                [],[],...
-                conD,...
-                lsqOpts);
-        end
+        %if (abs(sum(initX)-1) < params.sumTol)
+        x = initX;
+%         else
+%             [x,resnorm] = lsqlin(curDict, curTarg,...
+%                 conA,conB,...%nonnegativity
+%                 conC,1,...
+%                 [],[],...
+%                 conD,...
+%                 lsqOpts);
+%         end
 %  
 % 
 %         if 1, %sum pooling
@@ -129,8 +132,9 @@ for f = 1:size(imageFileList,1)
 %         end
 
         texton_ind.data(element, :) = x';
-        texton_ind.indices(element,:) = indices';
+        texton_ind.indices(element,:) = indices(ndata,:)';
     end
+%     toc
 
     %this is sum pooling
     %H = hist(texton_ind.data, 1:dictionarySize);
