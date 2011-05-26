@@ -66,8 +66,7 @@ for f = 1:size(imageFileList,1)
     
     outFName = fullfile(dataBaseDir, sprintf('%s_texton_ind_%d_%d.mat', baseFName, dictionarySize, params.numNeighbors));
     outFName2 = fullfile(dataBaseDir, sprintf('%s_hist_%d_%d.mat', baseFName, dictionarySize, params.numNeighbors));
-    if(size(dir(outFName),1)~=0 && size(dir(outFName2),1)~=0 && params.can_skip&&...
-        params.can_skip_buildhist)
+    if(size(dir(outFName),1)~=0 && && params.can_skip && params.can_skip_buildhist)
         fprintf('Skipping %s\n', imageFName);
         load(outFName2, 'H');
         H_all(f,:) = H;
