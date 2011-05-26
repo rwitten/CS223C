@@ -56,7 +56,7 @@ for f = 1:size(imageFileList,1)
     [dirN base] = fileparts(imageFName);
     baseFName = fullfile(dirN, base);
     
-    outFName = fullfile(dataBaseDir, sprintf('%s_pyramid_%d_%d.mat', baseFName, dictionarySize, pyramidLevels));
+    outFName = fullfile(dataBaseDir, sprintf('%s_pyramid_%d_%d_%d.mat', baseFName, dictionarySize, pyramidLevels, params.numNeighbors));
     if(size(dir(outFName),1)~=0 && params.can_skip && params.can_skip_compilepyramid)
         fprintf('Skipping %s\n', imageFName);
         load(outFName, 'pyramid');
@@ -136,6 +136,13 @@ for f = 1:size(imageFileList,1)
     end
     pyramid((curEnd+1):end) = pyramid_cell{pyramidLevels}(:)' .* 2^(1-pyramidLevels);
 
+    %%Normalize
+    if (params.sum_norm)
+        pyramid = pyramid/sum(pyramid);
+    else
+        pyramid = pyramid/norm(pyramid);
+    end
+    
     % save pyramid
     save(outFName, 'pyramid');
 
@@ -143,7 +150,7 @@ for f = 1:size(imageFileList,1)
 
 end % f
 
-outFName = fullfile(dataBaseDir, sprintf('pyramids_all_%d_%d.mat', dictionarySize, pyramidLevels));
+outFName = fullfile(dataBaseDir, sprintf('pyramids_all_%d_%d_%d.mat', dictionarySize, pyramidLevels, params.numNeighbors));
 save(outFName, 'pyramid_all');
 
 

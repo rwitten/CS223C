@@ -93,18 +93,19 @@ function params = initParams()
     end
     
     params.class_names = classes;
-    params.num_classes = 3;%length(params.class_names);
+    params.num_classes = 15;%length(params.class_names);
     params.max_image_size = 1000;
     params.dictionary_size = 200;
     params.num_texton_images = 50;
     params.pyramid_levels = 4;
     params.max_pooling = 1;
+    params.sum_norm = 0;
     params.do_llc = 0;
-    params.apply_kernel = 1;
+    params.apply_kernel = 0;
     params.can_skip = 1;
     params.can_skip_sift = 1;
     params.can_skip_calcdict = 1;
-    params.can_skip_buildhist = 0;
+    params.can_skip_buildhist = 1;
     params.can_skip_compilepyramid = 0;
     params.sumTol = 0;
     params.percent_train = 0.7;

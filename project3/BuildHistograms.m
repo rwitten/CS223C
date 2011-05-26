@@ -64,8 +64,8 @@ for f = 1:size(imageFileList,1)
     baseFName = fullfile(dirN, base);
     inFName = fullfile(dataBaseDir, sprintf('%s%s', baseFName, featureSuffix));
     
-    outFName = fullfile(dataBaseDir, sprintf('%s_texton_ind_%d.mat', baseFName, dictionarySize));
-    outFName2 = fullfile(dataBaseDir, sprintf('%s_hist_%d.mat', baseFName, dictionarySize));
+    outFName = fullfile(dataBaseDir, sprintf('%s_texton_ind_%d_%d.mat', baseFName, dictionarySize, params.numNeighbors));
+    outFName2 = fullfile(dataBaseDir, sprintf('%s_hist_%d_%d.mat', baseFName, dictionarySize, params.numNeighbors));
     if(size(dir(outFName),1)~=0 && size(dir(outFName2),1)~=0 && params.can_skip&&...
         params.can_skip_buildhist)
         fprintf('Skipping %s\n', imageFName);
@@ -131,7 +131,7 @@ for f = 1:size(imageFileList,1)
 end
 
 %% save histograms of all images in this directory in a single file
-outFName = fullfile(dataBaseDir, sprintf('histograms_%d.mat', dictionarySize));
+outFName = fullfile(dataBaseDir, sprintf('histograms_%d_%d.mat', dictionarySize, params.numNeighbors));
 save(outFName, 'H_all', '-ascii');
 
 

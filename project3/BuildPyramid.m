@@ -80,5 +80,5 @@ patchSize = 16
 GenerateSiftDescriptors( imageFileList,imageBaseDir,dataBaseDir,maxImageSize,gridSpacing,patchSize,params);
 CalculateDictionary(imageFileList,dataBaseDir,'_sift.mat',dictionarySize,numTextonImages,params);
 BuildHistograms(imageFileList,dataBaseDir,'_sift.mat',dictionarySize,params);
-pyramid_all = CompilePyramid(imageFileList,dataBaseDir,sprintf('_texton_ind_%d.mat',dictionarySize),dictionarySize,pyramidLevels, params);
+pyramid_all = CompilePyramid(imageFileList,dataBaseDir,sprintf('_texton_ind_%d_%d.mat',dictionarySize, params.numNeighbors),dictionarySize,pyramidLevels, params);
 end
