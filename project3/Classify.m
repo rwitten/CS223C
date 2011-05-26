@@ -109,4 +109,5 @@ function params = initParams()
     params.sumTol = 0;
     params.percent_train = 0.7;
     params.numNeighbors = 5;
+    params.usekdtree = 0;
 end

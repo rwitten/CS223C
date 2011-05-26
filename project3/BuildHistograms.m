@@ -51,7 +51,11 @@ conB =  zeros(params.numNeighbors,1);
 conC = ones(1,params.numNeighbors);
 conD = conC/params.numNeighbors;
 lsqOpts = optimset('display', 'off','LargeScale', 'off', 'TolFun', 1e-2);
-searchObj = createns(dictionary, 'NSMethod', 'exhaustive');
+if (params.usekdtree)
+    searchObj = createns(dictionary, 'NSMethod', 'kdtree');
+else
+    searchObj = createns(dictionary, 'NSMethod', 'exhaustive');
+end
 
 for f = 1:size(imageFileList,1)
 
@@ -102,7 +106,6 @@ for f = 1:size(imageFileList,1)
 %         end
 %     end
 
-%     tic
     indices = searchObj.knnsearch(features.data, 'K', params.numNeighbors);
     for element = 1:ndata
         curTarg = features.data(element,:);
@@ -111,30 +114,11 @@ for f = 1:size(imageFileList,1)
         bigC = bsxfun(@minus,curDict, curTarg);
         bigC = bigC * bigC';
         initX = bigC \ conC';
-        initX = initX / sum(initX);
-        
-        %if (abs(sum(initX)-1) < params.sumTol)
-        x = initX;
-%         else
-%             [x,resnorm] = lsqlin(curDict, curTarg,...
-%                 conA,conB,...%nonnegativity
-%                 conC,1,...
-%                 [],[],...
-%                 conD,...
-%                 lsqOpts);
-%         end
-%  
-% 
-%         if 1, %sum pooling
-%             H(indices) = H(indices) + x';
-%         else %max pooling
-%             H(indices) = max(H(indices), x');
-%         end
+        x = initX / sum(initX);
 
         texton_ind.data(element, :) = x';
-        texton_ind.indices(element,:) = indices(ndata,:)';
     end
-%     toc
+    texton_ind.indices = indices';
 
     %this is sum pooling
     %H = hist(texton_ind.data, 1:dictionarySize);
