@@ -43,7 +43,7 @@ load(inFName,'dictionary');
 fprintf('Loaded texton dictionary: %d textons\n', dictionarySize);
 
 %% compute texton labels of patches and whole-image histograms
-H_all = zeros(size(imageFileList,1), dictionarySize);
+% H_all = zeros(size(imageFileList,1), dictionarySize);
 
 %% Preallocate constants
 conA =  -1*eye(params.numNeighbors);
@@ -68,8 +68,8 @@ for f = 1:size(imageFileList,1)
     outFName2 = fullfile(dataBaseDir, sprintf('%s_hist_%d_%d.mat', baseFName, dictionarySize, params.numNeighbors));
     if(size(dir(outFName),1)~=0 && params.can_skip && params.can_skip_buildhist)
         fprintf('Skipping %s\n', imageFName);
-        load(outFName2, 'H');
-        H_all(f,:) = H;
+%         load(outFName2, 'H');
+%         H_all(f,:) = H;
         continue;
     end
     
@@ -130,8 +130,8 @@ for f = 1:size(imageFileList,1)
 end
 
 %% save histograms of all images in this directory in a single file
-outFName = fullfile(dataBaseDir, sprintf('histograms_%d_%d.mat', dictionarySize, params.numNeighbors));
-save(outFName, 'H_all', '-ascii');
+% outFName = fullfile(dataBaseDir, sprintf('histograms_%d_%d.mat', dictionarySize, params.numNeighbors));
+% save(outFName, 'H_all', '-ascii');
 
 
 end
