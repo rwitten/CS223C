@@ -118,7 +118,7 @@ for f = 1:size(imageFileList,1)
 
         texton_ind.data(element, :) = x';
     end
-    texton_ind.indices = indices';
+    texton_ind.indices = indices;
 
     %this is sum pooling
     %H = hist(texton_ind.data, 1:dictionarySize);
