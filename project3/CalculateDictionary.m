@@ -56,38 +56,44 @@ end
 
 %% load file list and determine indices of training images
 
-inFName = fullfile(dataBaseDir, 'f_order.txt');
-if ~isempty(dir(inFName))
-    R = load(inFName, '-ascii');
-    if(size(R,1)~=size(imageFileList,1))
-        R = randperm(size(imageFileList,1));
-        sp_make_dir(inFName);
-        save(inFName, 'R', '-ascii');
-    end
-else
-    R = randperm(size(imageFileList,1));
-    sp_make_dir(inFName);
-    save(inFName, 'R', '-ascii');
-end
-
-training_indices = R(1:numTextonImages);
+% inFName = fullfile(dataBaseDir, 'f_order.txt');
+% if ~isempty(dir(inFName))
+%     R = load(inFName, '-ascii');
+%     if(size(R,1)~=size(imageFileList,1))
+%         R = randperm(size(imageFileList,1));
+%         sp_make_dir(inFName);
+%         save(inFName, 'R', '-ascii');
+%     end
+% else
+%     R = randperm(size(imageFileList,1));
+%     sp_make_dir(inFName);
+%     save(inFName, 'R', '-ascii');
+% end
+% 
+% training_indices = R(1:numTextonImages);
 
 %% load all SIFT descriptors
 
 sift_all = [];
+curNumTextons = 0;
+indexArray = 1:length(imageFileList);
+for c = 1:params.num_classes    
+    fileIndices  = indexArray(~cellfun('isempty',(strfind(imageFileList, params.class_names{c}))));
+    fileIndices = fileIndices(randperm(length(fileIndices)));
+    numTextonsForClass = round((numTextonImages-curNumTextons)/(params.num_classes-c+1));
+    for f = 1:min(numTextonsForClass,length(fileIndices))
+        imageFName = imageFileList{fileIndices(f)};
+        [dirN base] = fileparts(imageFName);
+        baseFName = fullfile(dirN, base);
+        inFName = fullfile(dataBaseDir, sprintf('%s%s', baseFName, featureSuffix));
 
-for f = 1:numTextonImages    
-    
-    imageFName = imageFileList{training_indices(f)};
-    [dirN base] = fileparts(imageFName);
-    baseFName = fullfile(dirN, base);
-    inFName = fullfile(dataBaseDir, sprintf('%s%s', baseFName, featureSuffix));
+        load(inFName, 'features');
+        ndata = size(features.data,1);
 
-    load(inFName, 'features');
-    ndata = size(features.data,1);
-
-    sift_all = [sift_all; features.data];
-    fprintf('Loaded %s, %d descriptors, %d so far\n', inFName, ndata, size(sift_all,1));
+        curNumTextons = curNumTextons + 1;
+        sift_all = [sift_all; features.data];
+        fprintf('Loaded %s, %d descriptors, %d so far\n', inFName, ndata, size(sift_all,1));
+    end
 end
 
 fprintf('\nTotal descriptors loaded: %d\n', size(sift_all,1));
