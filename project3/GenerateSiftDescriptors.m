@@ -41,51 +41,63 @@ end
 
 for f = 1:size(imageFileList,1)
 
-    %% load image
+    
+    %load image
     imageFName = imageFileList{f};
     [dirN base] = fileparts(imageFName);
     baseFName = [dirN filesep base];
     outFName = fullfile(dataBaseDir, sprintf('%s_sift.mat', baseFName));
     imageFName = fullfile(imageBaseDir, imageFName);
-    
+
     if(size(dir(outFName),1)~=0 && params.can_skip && params.can_skip_sift)
-        fprintf('Skipping %s\n', imageFName);
+        fprintf('Skipping (SIFT) %s\n', imageFName);
         continue;
     end
-    
+
     I = sp_load_image(imageFName);
 
     [hgt wid] = size(I);
     if min(hgt,wid) > maxImageSize
         I = imresize(I, maxImageSize/min(hgt,wid), 'bicubic');
-        fprintf('Loaded %s: original size %d x %d, resizing to %d x %d\n', ...
+        fprintf('Loaded (SIFT) %s: original size %d x %d, resizing to %d x %d\n', ...
             imageFName, wid, hgt, size(I,2), size(I,1));
         [hgt wid] = size(I);
     end
-
-    %% make grid (coordinates of upper left patch corners)
-    remX = mod(wid-patchSize,gridSpacing);
-    offsetX = floor(remX/2)+1;
-    remY = mod(hgt-patchSize,gridSpacing);
-    offsetY = floor(remY/2)+1;
     
-    [gridX,gridY] = meshgrid(offsetX:gridSpacing:wid-patchSize+1, offsetY:gridSpacing:hgt-patchSize+1);
-
-    fprintf('Processing (SIFT) %s: wid %d, hgt %d, grid size: %d x %d, %d patches\n', ...
-             imageFName, wid, hgt, size(gridX,2), size(gridX,1), numel(gridX));
-
-    %% find SIFT descriptors
-    siftArr = sp_find_sift_grid(I, gridX, gridY, patchSize, 0.8);
-    siftArr = sp_normalize_sift(siftArr);
     
-    features.data = siftArr;
-    features.x = gridX(:) + patchSize/2 - 0.5;
-    features.y = gridY(:) + patchSize/2 - 0.5;
+    
+    for j = 1:params.numPassesSift
+        gridSpacing = floor(12*1.2^(j-1));
+        blur = .2 * (j+1);
+        %% make grid (coordinates of upper left patch corners)
+        remX = mod(wid-patchSize,gridSpacing);
+        offsetX = floor(remX/2)+1;
+        remY = mod(hgt-patchSize,gridSpacing);
+        offsetY = floor(remY/2)+1;
+
+        [gridX,gridY] = meshgrid(offsetX:gridSpacing:wid-patchSize+1, offsetY:gridSpacing:hgt-patchSize+1);
+
+        fprintf('Processing (SIFT) pass %d %s: wid %d, hgt %d, grid size: %d x %d, %d patches\n', ...
+                 j,imageFName, wid, hgt, size(gridX,2), size(gridX,1), numel(gridX));
+
+        %% find SIFT descriptors
+        siftArr = sp_find_sift_grid(I, gridX, gridY, patchSize, blur);
+        siftArr = sp_normalize_sift(siftArr);
+
+        features.data{j,1} = siftArr;
+        features.x{j,1} = gridX(:) + patchSize/2 - 0.5;
+        features.y{j,1} = gridY(:) + patchSize/2 - 0.5;
+
+    end
+
+    features.data = cell2mat(features.data);
+    features.x = cell2mat(features.x);
+    features.y = cell2mat(features.y);
     features.wid = wid;
     features.hgt = hgt;
-
     sp_make_dir(outFName);
     save(outFName, 'features');
+    clear features;
 
 end % for
 

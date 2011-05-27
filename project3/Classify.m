@@ -96,6 +96,7 @@ function params = initParams()
     load('class_names.mat', 'classes');
     
     params.do_ppmi = 0;
+ 
     if ~params.do_ppmi,
         params.image_dir = 'images'; 
         params.data_dir = 'data';
@@ -114,7 +115,7 @@ function params = initParams()
     params.sum_norm = 0;
     params.do_llc = 0;
     params.apply_kernel = 0;
-    params.can_skip = 1;
+    params.can_skip = 0;
     params.can_skip_sift = 1;
     params.can_skip_calcdict = 1;
     params.can_skip_buildhist = 1;
@@ -123,4 +124,5 @@ function params = initParams()
     params.percent_train = 0.7;
     params.numNeighbors = 5;
     params.usekdtree = 0;
+    params.numPassesSift=10;
 end
