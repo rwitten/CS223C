@@ -56,8 +56,8 @@ test_filenames = test_filenames';
 
 %Note: Codebook technically could be generated from testing data with this
 %approach, easy to fix up later though.
-train_pyramids = BuildPyramid(train_filenames, params);
-test_pyramids = BuildPyramid(test_filenames, params);
+train_pyramids = BuildPyramid(train_filenames, params,1);
+test_pyramids = BuildPyramid(test_filenames, params,0);
 
 size(train_pyramids)
 size(test_pyramids)
@@ -69,7 +69,7 @@ clear filenames;
 if params.apply_kernel
     train_data = hist_isect_c(train_pyramids, train_pyramids);
     test_data = hist_isect_c(test_pyramids, train_pyramids);
-    fprintf('kernel applied');
+    fprintf('kernel 5');
 else
     train_data = train_pyramids;
     test_data = test_pyramids;
@@ -88,7 +88,8 @@ accuracy
 
 %Test detector
 [~, accuracy] = predict(test_labels, sparse(test_data), model);
-accuracy
+accuracy %this is correct since we modified dataset to have same size
+         %for each class.
 
 end
 
@@ -104,25 +105,27 @@ function params = initParams()
         params.image_dir = 'ppmi/norm_image/play_instrument'; 
         params.data_dir = 'data_ppmi';
     end
+
+    params.useNaiveNN = 1;
     
     params.class_names = classes;
     params.num_classes = 15;%length(params.class_names);
     params.max_image_size = 1000;
-    params.dictionary_size = 200;
+    params.dictionary_size = 1024;
     params.num_texton_images = 150;
     params.pyramid_levels = 4;
     params.max_pooling = 1;
     params.sum_norm = 0;
     params.do_llc = 0;
-    params.apply_kernel = 0;
-    params.can_skip = 0;
+    params.apply_kernel = 1;
+    params.can_skip = 1;
     params.can_skip_sift = 1;
     params.can_skip_calcdict = 1;
-    params.can_skip_buildhist = 1;
-    params.can_skip_compilepyramid = 1;
+    params.can_skip_buildhist = 0;
+    params.can_skip_compilepyramid = 0;
     params.sumTol = 0;
     params.percent_train = 0.7;
-    params.numNeighbors = 5;
+    params.numNeighbors = 1;
     params.usekdtree = 0;
     params.numPassesSift=10;
 end

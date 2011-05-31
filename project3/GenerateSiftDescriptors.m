@@ -68,7 +68,7 @@ for f = 1:size(imageFileList,1)
     
     for j = 1:params.numPassesSift
         gridSpacing = floor(12*1.2^(j-1));
-        blur = .2 * (j+1);
+        blur = .2 * (gridSpacing);
         %% make grid (coordinates of upper left patch corners)
         remX = mod(wid-patchSize,gridSpacing);
         offsetX = floor(remX/2)+1;

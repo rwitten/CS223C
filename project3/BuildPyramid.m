@@ -1,4 +1,4 @@
-function [ pyramid_all ] = BuildPyramid( imageFileList, params)
+function [ pyramid_all ] = BuildPyramid( imageFileList, params, isTrain)
 %function [ pyramid_all ] = BuildPyramid( imageFileList, imageBaseDir, dataBaseDir, dictionarySize, numTextonImages, pyramidLevels )
 %
 %Complete all steps necessary to build a spatial pyramid based
@@ -78,7 +78,9 @@ patchSize = 16
 
 %% build the pyramid
 GenerateSiftDescriptors( imageFileList,imageBaseDir,dataBaseDir,maxImageSize,gridSpacing,patchSize,params);
-CalculateDictionary(imageFileList,dataBaseDir,'_sift.mat',dictionarySize,numTextonImages,params);
+if isTrain
+    CalculateDictionary(imageFileList,dataBaseDir,'_sift.mat',dictionarySize,numTextonImages,params);
+end
 BuildHistograms(imageFileList,dataBaseDir,'_sift.mat',dictionarySize,params);
 pyramid_all = CompilePyramid(imageFileList,dataBaseDir,sprintf('_texton_ind_%d_%d.mat',dictionarySize, params.numNeighbors),dictionarySize,pyramidLevels, params);
 end

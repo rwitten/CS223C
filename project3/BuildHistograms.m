@@ -51,10 +51,12 @@ conB =  zeros(params.numNeighbors,1);
 conC = ones(1,params.numNeighbors);
 conD = conC/params.numNeighbors;
 lsqOpts = optimset('display', 'off','LargeScale', 'off', 'TolFun', 1e-2);
-if (params.usekdtree)
-    searchObj = createns(dictionary, 'NSMethod', 'kdtree');
-else
-    searchObj = createns(dictionary, 'NSMethod', 'exhaustive');
+if (~params.useNaiveNN)
+    if (params.usekdtree)
+        searchObj = createns(dictionary, 'NSMethod', 'kdtree');
+    else
+        searchObj = createns(dictionary, 'NSMethod', 'exhaustive');
+    end
 end
 
 for f = 1:size(imageFileList,1)
@@ -104,20 +106,43 @@ for f = 1:size(imageFileList,1)
 %             texton_ind.data(lo:hi,:) = min_ind;
 %         end
 %     end
+    
+    tic;
+    if(params.useNaiveNN)
+        for element = 1:ndata
+            indices=knnsearch(features.data(element,:),dictionary,params.numNeighbors);
+            if ( params.numNeighbors == 1) %if we're just doing SPM shortcircuit
+                texton_ind.data(element, :) = 1;
+                texton_ind.indices(element,:) = indices';
+                continue;
+            end
 
-    indices = searchObj.knnsearch(features.data, 'K', params.numNeighbors);
-    for element = 1:ndata
-        curTarg = features.data(element,:);
-        
-        curDict = dictionary(indices(ndata,:),:);
-        bigC = bsxfun(@minus,curDict, curTarg);
-        bigC = bigC * bigC';
-        initX = bigC \ conC';
-        x = initX / sum(initX);
+            curTarg = features.data(element,:);
 
-        texton_ind.data(element, :) = x';
+            curDict = dictionary(indices,:);
+            bigC = bsxfun(@minus,curDict, curTarg);
+            bigC = bigC * bigC';
+            initX = bigC \ conC';
+            x = initX / sum(initX);
+
+            texton_ind.data(element, :) = x';
+            texton_ind.indices(element,:) = indices';
+        end
+    else
+        for element = 1:ndata
+            curTarg = features.data(element,:);
+
+            curDict = dictionary(indices(ndata,:),:);
+            bigC = bsxfun(@minus,curDict, curTarg);
+            bigC = bigC * bigC';
+            initX = bigC \ conC';
+            x = initX / sum(initX);
+
+            texton_ind.data(element, :) = x';
+        end
+        texton_ind.indices = indices;
     end
-    texton_ind.indices = indices;
+    toc
 
     %this is sum pooling
     %H = hist(texton_ind.data, 1:dictionarySize);
