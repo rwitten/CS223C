@@ -101,7 +101,7 @@ for f = 1:size(imageFileList,1)
             %this is sum pooling
             
             for texton=1:size(texton_indices,1),
-                if (params.max_pooling)
+                if (params.max_pooling==1)
                    pyramid_cell{1}(i,j,texton_indices(texton,:)) = max(pyramid_cell{1}(i,j,texton_indices(texton,:)),permute(texton_patch(texton,:), [3 1 2])); 
                 else
                     pyramid_cell{1}(i,j,texton_indices(texton,:))=...
@@ -119,7 +119,7 @@ for f = 1:size(imageFileList,1)
         pyramid_cell{l} = zeros(num_bins, num_bins, dictionarySize);
         for i=1:num_bins
             for j=1:num_bins
-                if (params.max_pooling)
+                if (params.max_pooling==1)
                     pyramid_cell{l}(i,j,:) = max(max(max(...
                     pyramid_cell{l-1}(2*i-1,2*j-1,:),pyramid_cell{l-1}(2*i,2*j-1,:)), ...
                     pyramid_cell{l-1}(2*i-1,2*j,:)), pyramid_cell{l-1}(2*i,2*j,:));

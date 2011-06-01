@@ -66,10 +66,30 @@ clear filenames;
 
 
 %Apply kernels if you want
-if params.apply_kernel
+if params.apply_kernel == 1
     train_data = hist_isect_c(train_pyramids, train_pyramids);
     test_data = hist_isect_c(test_pyramids, train_pyramids);
-    fprintf('kernel 5');
+    fprintf('kernel intersect');
+elseif params.apply_kernel == 2
+    %% perform clustering
+    options = foptions;
+    options(1) = 1; % display
+    options(2) = 1;
+    options(3) = 0.01; % precision
+    options(5) = 1; % initialization
+    options(14) = 100; % maximum iterations
+    class_centers = zeros(params.num_classes*params.clustersPerClass, size(train_pyramids,2));
+    init_zeros = zeros(params.clustersPerClass, size(train_pyramids,2));
+    %% run kmeans for each class
+    fprintf('\nRunning k-means\n');
+    for i=1:params.num_classes
+        class_centers((i-1)*params.clustersPerClass + (1:params.clustersPerClass),:) = ...
+            sp_kmeans(init_zeros, train_pyramids(train_labels==i,:), options);
+    end
+    
+    train_data = hist_isect_c(train_pyramids, class_centers);
+    test_data = hist_isect_c(test_pyramids, class_centers);
+    fprintf('kernel scalable intersect');
 else
     train_data = train_pyramids;
     test_data = test_pyramids;
@@ -82,7 +102,7 @@ clear test_pyramids;
 
 
 %Train detector
-model = train(train_labels,sparse(train_data));
+model = train(train_labels,sparse(train_data), '-s 4');
 [~, accuracy] = predict(train_labels, sparse(train_data), model);
 accuracy
 
@@ -110,19 +130,20 @@ function params = initParams()
     
     params.class_names = classes;
     params.num_classes = 15;%length(params.class_names);
+    params.clustersPerClass = 5;
     params.max_image_size = 1000;
-    params.dictionary_size = 1024;
+    params.dictionary_size = 200;
     params.num_texton_images = 150;
     params.pyramid_levels = 4;
     params.max_pooling = 1;
     params.sum_norm = 0;
     params.do_llc = 0;
-    params.apply_kernel = 1;
+    params.apply_kernel = 0;
     params.can_skip = 1;
     params.can_skip_sift = 1;
     params.can_skip_calcdict = 1;
-    params.can_skip_buildhist = 0;
-    params.can_skip_compilepyramid = 0;
+    params.can_skip_buildhist = 1;
+    params.can_skip_compilepyramid = 1;
     params.sumTol = 0;
     params.percent_train = 0.7;
     params.numNeighbors = 1;
